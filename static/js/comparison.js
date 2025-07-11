@@ -407,34 +407,29 @@ document.addEventListener('DOMContentLoaded', function() {
         
         console.log('Generating HTML for comparison results');
         
-        // COMPLETELY REPLACE with simple direct content like the emergency popup
+        // USE REAL DATA from the comparison object
         let html = `
             <div style="background: white; border: 3px solid #007cba; border-radius: 8px; padding: 30px; margin: 20px 0; font-family: Arial, sans-serif;">
                 <h1 style="color: #007cba; font-size: 32px; margin: 0 0 20px 0; text-align: center; border-bottom: 3px solid #007cba; padding-bottom: 15px;">
                     📊 Dataset Comparison Results
                 </h1>
                 <p style="text-align: center; font-size: 18px; margin: 0 0 30px 0; color: #666;">
-                    Comparing ${comparison.overview.datasets.length} datasets: concrete_data.csv vs Titanic-Dataset.csv
+                    Comparing ${comparison.overview.datasets.length} datasets: ${comparison.overview.datasets.map(d => d.name).join(' vs ')}
                 </p>
                 
                 <!-- OVERVIEW SECTION -->
                 <div style="background: #f0f8ff; border: 2px solid #007cba; border-radius: 8px; padding: 25px; margin: 20px 0;">
                     <h2 style="color: #007cba; font-size: 24px; margin: 0 0 20px 0;">📊 Overview</h2>
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
-                        <div style="background: white; padding: 20px; border: 2px solid #007cba; border-radius: 8px;">
-                            <h3 style="color: #005580; margin: 0 0 15px 0;">Dataset 1: concrete_data.csv</h3>
-                            <p style="margin: 5px 0;"><strong>Rows:</strong> 1,030</p>
-                            <p style="margin: 5px 0;"><strong>Columns:</strong> 9</p>
-                            <p style="margin: 5px 0;"><strong>Type:</strong> Numerical concrete properties</p>
-                            <p style="margin: 5px 0;"><strong>Missing Values:</strong> 0%</p>
-                        </div>
-                        <div style="background: white; padding: 20px; border: 2px solid #007cba; border-radius: 8px;">
-                            <h3 style="color: #005580; margin: 0 0 15px 0;">Dataset 2: Titanic-Dataset.csv</h3>
-                            <p style="margin: 5px 0;"><strong>Rows:</strong> 891</p>
-                            <p style="margin: 5px 0;"><strong>Columns:</strong> 12</p>
-                            <p style="margin: 5px 0;"><strong>Type:</strong> Passenger survival data</p>
-                            <p style="margin: 5px 0;"><strong>Missing Values:</strong> 15%</p>
-                        </div>
+                    <div style="display: grid; grid-template-columns: ${comparison.overview.datasets.length === 2 ? '1fr 1fr' : 'repeat(auto-fit, minmax(300px, 1fr))'}; gap: 20px;">
+                        ${comparison.overview.datasets.map((dataset, index) => `
+                            <div style="background: white; padding: 20px; border: 2px solid #007cba; border-radius: 8px;">
+                                <h3 style="color: #005580; margin: 0 0 15px 0;">Dataset ${index + 1}: ${dataset.name}</h3>
+                                <p style="margin: 5px 0;"><strong>Rows:</strong> ${dataset.rows.toLocaleString()}</p>
+                                <p style="margin: 5px 0;"><strong>Columns:</strong> ${dataset.columns}</p>
+                                <p style="margin: 5px 0;"><strong>Memory Usage:</strong> ${dataset.memory_usage}</p>
+                                <p style="margin: 5px 0;"><strong>Missing Values:</strong> ${dataset.missing_values}</p>
+                            </div>
+                        `).join('')}
                     </div>
                 </div>
                 
@@ -442,22 +437,54 @@ document.addEventListener('DOMContentLoaded', function() {
                 <div style="background: #fff9e6; border: 2px solid #ff9800; border-radius: 8px; padding: 25px; margin: 20px 0;">
                     <h2 style="color: #ff9800; font-size: 24px; margin: 0 0 20px 0;">🔍 Schema Comparison</h2>
                     <div style="background: white; padding: 20px; border: 2px solid #ff9800; border-radius: 8px;">
-                        <h3 style="color: #e65100; margin: 0 0 15px 0;">Common Columns: 0</h3>
-                        <p style="margin: 10px 0; padding: 10px; background: #ffebee; border-left: 4px solid #f44336; color: #c62828;">
-                            ❌ <strong>No common columns found between datasets</strong>
-                        </p>
-                        <div style="margin: 20px 0;">
-                            <h4 style="color: #e65100; margin: 10px 0;">Concrete Dataset Columns:</h4>
-                            <p style="background: #f3e5f5; padding: 10px; border-radius: 4px; font-family: monospace; font-size: 14px;">
-                                cement, blast_furnace_slag, fly_ash, water, superplasticizer, coarse_aggregate, fine_aggregate, age, concrete_compressive_strength
+                        <h3 style="color: #e65100; margin: 0 0 15px 0;">Common Columns: ${comparison.schema_comparison.common_columns.length}</h3>
+                        ${comparison.schema_comparison.common_columns.length > 0 ? `
+                            <div style="margin: 20px 0;">
+                                <h4 style="color: #e65100; margin: 10px 0;">Common Columns:</h4>
+                                <p style="background: #e8f5e8; padding: 10px; border-radius: 4px; font-family: monospace; font-size: 14px;">
+                                    ${comparison.schema_comparison.common_columns.join(', ')}
+                                </p>
+                            </div>
+                        ` : `
+                            <p style="margin: 10px 0; padding: 10px; background: #ffebee; border-left: 4px solid #f44336; color: #c62828;">
+                                ❌ <strong>No common columns found between datasets</strong>
                             </p>
-                        </div>
-                        <div style="margin: 20px 0;">
-                            <h4 style="color: #e65100; margin: 10px 0;">Titanic Dataset Columns:</h4>
-                            <p style="background: #e8f5e8; padding: 10px; border-radius: 4px; font-family: monospace; font-size: 14px;">
-                                PassengerId, Survived, Pclass, Name, Sex, Age, SibSp, Parch, Ticket, Fare, Cabin, Embarked
-                            </p>
-                        </div>
+                        `}
+                        
+                        ${Object.keys(comparison.schema_comparison.unique_columns).length > 0 ? 
+                            Object.entries(comparison.schema_comparison.unique_columns).map(([dataset, columns]) => `
+                                <div style="margin: 20px 0;">
+                                    <h4 style="color: #e65100; margin: 10px 0;">${dataset} Unique Columns (${columns.length}):</h4>
+                                    <p style="background: #f3e5f5; padding: 10px; border-radius: 4px; font-family: monospace; font-size: 14px;">
+                                        ${columns.join(', ')}
+                                    </p>
+                                </div>
+                            `).join('') 
+                        : ''}
+                        
+                        ${comparison.schema_comparison.data_type_differences.length > 0 ? `
+                            <div style="margin: 20px 0;">
+                                <h4 style="color: #e65100; margin: 10px 0;">Data Type Differences:</h4>
+                                <table style="width: 100%; border-collapse: collapse; margin: 10px 0;">
+                                    <thead>
+                                        <tr style="background: #ff9800; color: white;">
+                                            <th style="border: 1px solid #ff9800; padding: 8px;">Column</th>
+                                            <th style="border: 1px solid #ff9800; padding: 8px;">Dataset 1 Type</th>
+                                            <th style="border: 1px solid #ff9800; padding: 8px;">Dataset 2 Type</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${comparison.schema_comparison.data_type_differences.map(diff => `
+                                            <tr>
+                                                <td style="border: 1px solid #ff9800; padding: 8px; font-weight: bold;">${diff.column}</td>
+                                                <td style="border: 1px solid #ff9800; padding: 8px;">${diff.dataset1}</td>
+                                                <td style="border: 1px solid #ff9800; padding: 8px;">${diff.dataset2}</td>
+                                            </tr>
+                                        `).join('')}
+                                    </tbody>
+                                </table>
+                            </div>
+                        ` : ''}
                     </div>
                 </div>
                 
@@ -465,80 +492,115 @@ document.addEventListener('DOMContentLoaded', function() {
                 <div style="background: #e8f5e8; border: 2px solid #4caf50; border-radius: 8px; padding: 25px; margin: 20px 0;">
                     <h2 style="color: #4caf50; font-size: 24px; margin: 0 0 20px 0;">📈 Statistical Comparison</h2>
                     <div style="background: white; padding: 20px; border: 2px solid #4caf50; border-radius: 8px;">
-                        <h3 style="color: #2e7d32; margin: 0 0 15px 0;">Cross-Dataset Numerical Comparison: cement vs PassengerId</h3>
-                        <table style="width: 100%; border-collapse: collapse; margin: 15px 0; background: white;">
-                            <thead>
-                                <tr style="background: #4caf50; color: white;">
-                                    <th style="border: 2px solid #4caf50; padding: 12px; text-align: left;">Metric</th>
-                                    <th style="border: 2px solid #4caf50; padding: 12px; text-align: left;">Concrete (cement)</th>
-                                    <th style="border: 2px solid #4caf50; padding: 12px; text-align: left;">Titanic (PassengerId)</th>
-                                    <th style="border: 2px solid #4caf50; padding: 12px; text-align: left;">Difference</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr style="background: #f1f8e9;">
-                                    <td style="border: 1px solid #4caf50; padding: 10px; font-weight: bold;">Count</td>
-                                    <td style="border: 1px solid #4caf50; padding: 10px;">1,030</td>
-                                    <td style="border: 1px solid #4caf50; padding: 10px;">891</td>
-                                    <td style="border: 1px solid #4caf50; padding: 10px;">139</td>
-                                </tr>
-                                <tr style="background: white;">
-                                    <td style="border: 1px solid #4caf50; padding: 10px; font-weight: bold;">Mean</td>
-                                    <td style="border: 1px solid #4caf50; padding: 10px;">281.168</td>
-                                    <td style="border: 1px solid #4caf50; padding: 10px;">446.000</td>
-                                    <td style="border: 1px solid #4caf50; padding: 10px;">164.832</td>
-                                </tr>
-                                <tr style="background: #f1f8e9;">
-                                    <td style="border: 1px solid #4caf50; padding: 10px; font-weight: bold;">Std Dev</td>
-                                    <td style="border: 1px solid #4caf50; padding: 10px;">104.506</td>
-                                    <td style="border: 1px solid #4caf50; padding: 10px;">257.354</td>
-                                    <td style="border: 1px solid #4caf50; padding: 10px;">152.848</td>
-                                </tr>
-                                <tr style="background: white;">
-                                    <td style="border: 1px solid #4caf50; padding: 10px; font-weight: bold;">Min</td>
-                                    <td style="border: 1px solid #4caf50; padding: 10px;">102.000</td>
-                                    <td style="border: 1px solid #4caf50; padding: 10px;">1.000</td>
-                                    <td style="border: 1px solid #4caf50; padding: 10px;">101.000</td>
-                                </tr>
-                                <tr style="background: #f1f8e9;">
-                                    <td style="border: 1px solid #4caf50; padding: 10px; font-weight: bold;">Max</td>
-                                    <td style="border: 1px solid #4caf50; padding: 10px;">540.000</td>
-                                    <td style="border: 1px solid #4caf50; padding: 10px;">891.000</td>
-                                    <td style="border: 1px solid #4caf50; padding: 10px;">351.000</td>
-                                </tr>
-                            </tbody>
-                        </table>
+                        ${comparison.statistical_comparison && comparison.statistical_comparison.length > 0 ? 
+                            comparison.statistical_comparison.map(stat => {
+                                const stats1 = stat.dataset1.statistics;
+                                const stats2 = stat.dataset2.statistics;
+                                return `
+                                    <div style="margin: 20px 0;">
+                                        <h3 style="color: #2e7d32; margin: 0 0 15px 0;">${stat.comparison_type === 'different_columns' ? 'Cross-Dataset' : 'Same-Column'} Comparison: ${stat.column}</h3>
+                                        <table style="width: 100%; border-collapse: collapse; margin: 15px 0; background: white;">
+                                            <thead>
+                                                <tr style="background: #4caf50; color: white;">
+                                                    <th style="border: 2px solid #4caf50; padding: 12px; text-align: left;">Metric</th>
+                                                    <th style="border: 2px solid #4caf50; padding: 12px; text-align: left;">${stat.dataset1.name}</th>
+                                                    <th style="border: 2px solid #4caf50; padding: 12px; text-align: left;">${stat.dataset2.name}</th>
+                                                    <th style="border: 2px solid #4caf50; padding: 12px; text-align: left;">Difference</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <tr style="background: #f1f8e9;">
+                                                    <td style="border: 1px solid #4caf50; padding: 10px; font-weight: bold;">Count</td>
+                                                    <td style="border: 1px solid #4caf50; padding: 10px;">${stats1.count || 'N/A'}</td>
+                                                    <td style="border: 1px solid #4caf50; padding: 10px;">${stats2.count || 'N/A'}</td>
+                                                    <td style="border: 1px solid #4caf50; padding: 10px;">${stats1.count && stats2.count ? Math.abs(stats1.count - stats2.count) : 'N/A'}</td>
+                                                </tr>
+                                                <tr style="background: white;">
+                                                    <td style="border: 1px solid #4caf50; padding: 10px; font-weight: bold;">Mean</td>
+                                                    <td style="border: 1px solid #4caf50; padding: 10px;">${typeof stats1.mean === 'number' ? stats1.mean.toFixed(3) : 'N/A'}</td>
+                                                    <td style="border: 1px solid #4caf50; padding: 10px;">${typeof stats2.mean === 'number' ? stats2.mean.toFixed(3) : 'N/A'}</td>
+                                                    <td style="border: 1px solid #4caf50; padding: 10px;">${typeof stats1.mean === 'number' && typeof stats2.mean === 'number' ? Math.abs(stats1.mean - stats2.mean).toFixed(3) : 'N/A'}</td>
+                                                </tr>
+                                                <tr style="background: #f1f8e9;">
+                                                    <td style="border: 1px solid #4caf50; padding: 10px; font-weight: bold;">Std Dev</td>
+                                                    <td style="border: 1px solid #4caf50; padding: 10px;">${typeof stats1.std === 'number' ? stats1.std.toFixed(3) : 'N/A'}</td>
+                                                    <td style="border: 1px solid #4caf50; padding: 10px;">${typeof stats2.std === 'number' ? stats2.std.toFixed(3) : 'N/A'}</td>
+                                                    <td style="border: 1px solid #4caf50; padding: 10px;">${typeof stats1.std === 'number' && typeof stats2.std === 'number' ? Math.abs(stats1.std - stats2.std).toFixed(3) : 'N/A'}</td>
+                                                </tr>
+                                                <tr style="background: white;">
+                                                    <td style="border: 1px solid #4caf50; padding: 10px; font-weight: bold;">Min</td>
+                                                    <td style="border: 1px solid #4caf50; padding: 10px;">${typeof stats1.min === 'number' ? stats1.min.toFixed(3) : 'N/A'}</td>
+                                                    <td style="border: 1px solid #4caf50; padding: 10px;">${typeof stats2.min === 'number' ? stats2.min.toFixed(3) : 'N/A'}</td>
+                                                    <td style="border: 1px solid #4caf50; padding: 10px;">${typeof stats1.min === 'number' && typeof stats2.min === 'number' ? Math.abs(stats1.min - stats2.min).toFixed(3) : 'N/A'}</td>
+                                                </tr>
+                                                <tr style="background: #f1f8e9;">
+                                                    <td style="border: 1px solid #4caf50; padding: 10px; font-weight: bold;">Max</td>
+                                                    <td style="border: 1px solid #4caf50; padding: 10px;">${typeof stats1.max === 'number' ? stats1.max.toFixed(3) : 'N/A'}</td>
+                                                    <td style="border: 1px solid #4caf50; padding: 10px;">${typeof stats2.max === 'number' ? stats2.max.toFixed(3) : 'N/A'}</td>
+                                                    <td style="border: 1px solid #4caf50; padding: 10px;">${typeof stats1.max === 'number' && typeof stats2.max === 'number' ? Math.abs(stats1.max - stats2.max).toFixed(3) : 'N/A'}</td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                `;
+                            }).join('')
+                        : `
+                            <div style="text-align: center; padding: 20px; color: #666;">
+                                <h3>No Statistical Comparison Available</h3>
+                                <p>This can happen when:</p>
+                                <ul style="text-align: left; display: inline-block;">
+                                    <li>Datasets have no columns in common</li>
+                                    <li>Datasets contain only categorical/text data</li>
+                                    <li>There was an error loading the dataset files</li>
+                                </ul>
+                            </div>
+                        `}
                     </div>
                 </div>
                 
                 <!-- QUALITY SECTION -->
                 <div style="background: #fff3e0; border: 2px solid #ff9800; border-radius: 8px; padding: 25px; margin: 20px 0;">
                     <h2 style="color: #ff9800; font-size: 24px; margin: 0 0 20px 0;">✅ Data Quality Comparison</h2>
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
-                        <div style="background: white; padding: 20px; border: 2px solid #ff9800; border-radius: 8px;">
-                            <h3 style="color: #e65100; margin: 0 0 15px 0;">concrete_data.csv</h3>
-                            <div style="margin: 10px 0;">
-                                <p style="margin: 5px 0; display: flex; justify-content: space-between;"><span>📊 Completeness:</span><strong style="color: #4caf50;">100%</strong></p>
-                                <p style="margin: 5px 0; display: flex; justify-content: space-between;"><span>🔄 Consistency:</span><strong style="color: #4caf50;">95%</strong></p>
-                                <p style="margin: 5px 0; display: flex; justify-content: space-between;"><span>✓ Validity:</span><strong style="color: #4caf50;">90%</strong></p>
-                                <p style="margin: 5px 0; display: flex; justify-content: space-between;"><span>🎯 Uniqueness:</span><strong style="color: #4caf50;">75%</strong></p>
-                            </div>
-                        </div>
-                        <div style="background: white; padding: 20px; border: 2px solid #ff9800; border-radius: 8px;">
-                            <h3 style="color: #e65100; margin: 0 0 15px 0;">Titanic-Dataset.csv</h3>
-                            <div style="margin: 10px 0;">
-                                <p style="margin: 5px 0; display: flex; justify-content: space-between;"><span>📊 Completeness:</span><strong style="color: #ff9800;">85%</strong></p>
-                                <p style="margin: 5px 0; display: flex; justify-content: space-between;"><span>🔄 Consistency:</span><strong style="color: #ff9800;">80%</strong></p>
-                                <p style="margin: 5px 0; display: flex; justify-content: space-between;"><span>✓ Validity:</span><strong style="color: #4caf50;">90%</strong></p>
-                                <p style="margin: 5px 0; display: flex; justify-content: space-between;"><span>🎯 Uniqueness:</span><strong style="color: #4caf50;">75%</strong></p>
-                            </div>
-                        </div>
+                    <div style="display: grid; grid-template-columns: ${comparison.overview.datasets.length === 2 ? '1fr 1fr' : 'repeat(auto-fit, minmax(300px, 1fr))'}; gap: 20px;">
+                        ${comparison.quality_comparison && comparison.quality_comparison.length > 0 ? 
+                            comparison.quality_comparison.map(quality => `
+                                <div style="background: white; padding: 20px; border: 2px solid #ff9800; border-radius: 8px;">
+                                    <h3 style="color: #e65100; margin: 0 0 15px 0;">${quality.dataset}</h3>
+                                    <div style="margin: 10px 0;">
+                                        <p style="margin: 5px 0; display: flex; justify-content: space-between;"><span>📊 Completeness:</span><strong style="color: ${quality.completeness >= 90 ? '#4caf50' : quality.completeness >= 70 ? '#ff9800' : '#f44336'};">${quality.completeness}%</strong></p>
+                                        <p style="margin: 5px 0; display: flex; justify-content: space-between;"><span>🔄 Consistency:</span><strong style="color: ${quality.consistency >= 90 ? '#4caf50' : quality.consistency >= 70 ? '#ff9800' : '#f44336'};">${quality.consistency}%</strong></p>
+                                        <p style="margin: 5px 0; display: flex; justify-content: space-between;"><span>✓ Validity:</span><strong style="color: ${quality.validity >= 90 ? '#4caf50' : quality.validity >= 70 ? '#ff9800' : '#f44336'};">${quality.validity}%</strong></p>
+                                        <p style="margin: 5px 0; display: flex; justify-content: space-between;"><span>🎯 Uniqueness:</span><strong style="color: ${quality.uniqueness >= 90 ? '#4caf50' : quality.uniqueness >= 70 ? '#ff9800' : '#f44336'};">${quality.uniqueness}%</strong></p>
+                                        ${quality.issues && quality.issues.length > 0 ? `
+                                            <div style="margin-top: 15px; padding: 10px; background: #ffebee; border-left: 4px solid #f44336; border-radius: 4px;">
+                                                <h4 style="color: #d32f2f; margin: 0 0 8px 0; font-size: 14px;">Issues Found:</h4>
+                                                <ul style="margin: 0; padding-left: 20px; color: #c62828; font-size: 13px;">
+                                                    ${quality.issues.map(issue => `<li>${issue}</li>`).join('')}
+                                                </ul>
+                                            </div>
+                                        ` : ''}
+                                    </div>
+                                </div>
+                            `).join('')
+                        : 
+                            comparison.overview.datasets.map(dataset => `
+                                <div style="background: white; padding: 20px; border: 2px solid #ff9800; border-radius: 8px;">
+                                    <h3 style="color: #e65100; margin: 0 0 15px 0;">${dataset.name}</h3>
+                                    <div style="margin: 10px 0;">
+                                        <p style="margin: 5px 0; display: flex; justify-content: space-between;"><span>📊 Completeness:</span><strong style="color: #666;">Computing...</strong></p>
+                                        <p style="margin: 5px 0; display: flex; justify-content: space-between;"><span>🔄 Consistency:</span><strong style="color: #666;">Computing...</strong></p>
+                                        <p style="margin: 5px 0; display: flex; justify-content: space-between;"><span>✓ Validity:</span><strong style="color: #666;">Computing...</strong></p>
+                                        <p style="margin: 5px 0; display: flex; justify-content: space-between;"><span>🎯 Uniqueness:</span><strong style="color: #666;">Computing...</strong></p>
+                                    </div>
+                                </div>
+                            `).join('')
+                        }
                     </div>
                 </div>
                 
                 <div style="text-align: center; margin: 30px 0; padding: 20px; background: #f8f9fa; border-radius: 8px; border: 2px solid #6c757d;">
                     <h3 style="color: #495057; margin: 0 0 15px 0;">🎉 Comparison Complete!</h3>
-                    <p style="margin: 0; color: #6c757d;">All sections above show your dataset comparison results</p>
+                    <p style="margin: 0; color: #6c757d;">All sections above show your real dataset comparison results</p>
                 </div>
             </div>
         `;
