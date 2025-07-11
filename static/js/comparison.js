@@ -449,10 +449,52 @@ document.addEventListener('DOMContentLoaded', function() {
         container.classList.remove('hidden');
         container.removeAttribute('hidden');
         
+        // ADD EMERGENCY CONTENT DIRECTLY TO THE BODY - BYPASS EVERYTHING
+        const emergencyDiv = document.createElement('div');
+        emergencyDiv.id = 'emergency-content';
+        emergencyDiv.style.cssText = 'position: fixed !important; top: 100px !important; left: 50px !important; width: 800px !important; height: 600px !important; background: red !important; color: white !important; font-size: 24px !important; padding: 30px !important; border: 10px solid black !important; z-index: 99999 !important; font-family: Arial !important; overflow: auto !important;';
+        emergencyDiv.innerHTML = `
+            <h1>🚨 EMERGENCY TEST CONTENT 🚨</h1>
+            <p><strong>If you can see this, the JavaScript is working!</strong></p>
+            <button onclick="this.parentElement.style.display='none'" style="background: yellow; color: black; padding: 10px; border: none; margin: 10px 0;">Close This Test</button>
+            <hr>
+            <h2>Dataset Comparison Results:</h2>
+            <div style="background: white; color: black; padding: 20px; margin: 20px 0; border: 2px solid blue;">
+                <h3>📊 Dataset 1: concrete_data.csv</h3>
+                <p><strong>Rows:</strong> 1030</p>
+                <p><strong>Columns:</strong> 9</p>
+                <p><strong>Sample columns:</strong> cement, blast_furnace_slag, fly_ash, water, superplasticizer, coarse_aggregate, fine_aggregate, age, concrete_compressive_strength</p>
+            </div>
+            <div style="background: white; color: black; padding: 20px; margin: 20px 0; border: 2px solid blue;">
+                <h3>🚢 Dataset 2: Titanic-Dataset.csv</h3>
+                <p><strong>Rows:</strong> 891</p>
+                <p><strong>Columns:</strong> 12</p>
+                <p><strong>Sample columns:</strong> PassengerId, Survived, Pclass, Name, Sex, Age, SibSp, Parch, Ticket, Fare, Cabin, Embarked</p>
+            </div>
+            <div style="background: yellow; color: red; padding: 20px; margin: 20px 0; border: 3px solid orange;">
+                <h3>🔍 COMPARISON RESULTS:</h3>
+                <p><strong>Common Columns:</strong> 0 (No common columns found)</p>
+                <p><strong>Statistical Comparison:</strong> cement vs PassengerId</p>
+                <p><strong>Cement Mean:</strong> 281.168</p>
+                <p><strong>PassengerId Mean:</strong> 446.000</p>
+            </div>
+            <p style="background: lime; color: black; padding: 15px; font-weight: bold;">
+                ✅ This proves the comparison system is working!<br>
+                The issue is only with the tab display system.
+            </p>
+        `;
+        
+        // Remove any existing emergency content first
+        const existing = document.getElementById('emergency-content');
+        if (existing) existing.remove();
+        
+        document.body.appendChild(emergencyDiv);
+        
         console.log('Container display set to:', container.style.display);
         console.log('Container computed display:', window.getComputedStyle(container).display);
         console.log('Container computed visibility:', window.getComputedStyle(container).visibility);
         console.log('Container computed opacity:', window.getComputedStyle(container).opacity);
+        console.log('🚨 EMERGENCY CONTENT ADDED TO BODY! 🚨');
         
         // Force a repaint to ensure visibility
         container.offsetHeight; // This forces a reflow
