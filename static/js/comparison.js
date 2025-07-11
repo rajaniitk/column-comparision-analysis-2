@@ -1062,64 +1062,81 @@ document.addEventListener('DOMContentLoaded', function() {
         // Handle segment analysis display differently
         if (displayData.type === 'segment_analysis') {
             const html = `
-                <div class="segment-comparison-results">
-                    <h3>Segment Analysis Results</h3>
-                    <p>Analyzing <strong>${displayData.numerical_column}</strong> across segments of <strong>${displayData.categorical_column}</strong></p>
+                <div style="background: white; border: 3px solid #4caf50; border-radius: 8px; padding: 30px; margin: 20px 0; font-family: Arial, sans-serif;">
+                    <h1 style="color: #4caf50; font-size: 32px; margin: 0 0 20px 0; text-align: center; border-bottom: 3px solid #4caf50; padding-bottom: 15px;">
+                        📊 Segment Analysis Results
+                    </h1>
+                    <p style="text-align: center; font-size: 18px; margin: 0 0 30px 0; color: #666;">
+                        Analyzing <strong>${displayData.numerical_column}</strong> across segments of <strong>${displayData.categorical_column}</strong>
+                    </p>
                     
-                    <div class="comparison-summary">
-                        <div class="summary-cards">
-                            <div class="summary-card">
-                                <h4>Sample Size</h4>
-                                <span>${displayData.sample_size || 'N/A'}</span>
+                    <!-- SUMMARY SECTION -->
+                    <div style="background: #e8f5e8; border: 2px solid #4caf50; border-radius: 8px; padding: 25px; margin: 20px 0;">
+                        <h2 style="color: #4caf50; font-size: 24px; margin: 0 0 20px 0;">📈 Analysis Summary</h2>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
+                            <div style="background: white; padding: 15px; border: 2px solid #4caf50; border-radius: 8px; text-align: center;">
+                                <h3 style="color: #2e7d32; margin: 0 0 10px 0; font-size: 16px;">Sample Size</h3>
+                                <span style="font-size: 24px; font-weight: bold; color: #1b5e20;">${displayData.sample_size || 'N/A'}</span>
                             </div>
-                            <div class="summary-card">
-                                <h4>Groups Found</h4>
-                                <span>${displayData.group_count || 'N/A'}</span>
+                            <div style="background: white; padding: 15px; border: 2px solid #4caf50; border-radius: 8px; text-align: center;">
+                                <h3 style="color: #2e7d32; margin: 0 0 10px 0; font-size: 16px;">Groups Found</h3>
+                                <span style="font-size: 24px; font-weight: bold; color: #1b5e20;">${displayData.group_count || 'N/A'}</span>
                             </div>
-                            <div class="summary-card">
-                                <h4>ANOVA P-value</h4>
-                                <span>${displayData.tests['ANOVA P-value']}</span>
+                            <div style="background: white; padding: 15px; border: 2px solid #4caf50; border-radius: 8px; text-align: center;">
+                                <h3 style="color: #2e7d32; margin: 0 0 10px 0; font-size: 16px;">ANOVA P-value</h3>
+                                <span style="font-size: 20px; font-weight: bold; color: #1b5e20;">${displayData.tests['ANOVA P-value']}</span>
                             </div>
-                            <div class="summary-card">
-                                <h4>Effect Size (η²)</h4>
-                                <span>${displayData.tests['Effect Size (η²)']}</span>
+                            <div style="background: white; padding: 15px; border: 2px solid #4caf50; border-radius: 8px; text-align: center;">
+                                <h3 style="color: #2e7d32; margin: 0 0 10px 0; font-size: 16px;">Effect Size (η²)</h3>
+                                <span style="font-size: 20px; font-weight: bold; color: #1b5e20;">${displayData.tests['Effect Size (η²)']}</span>
                             </div>
                         </div>
                     </div>
 
-                    <div class="group-statistics-section">
-                        <h4>Group Statistics</h4>
-                        ${generateGroupStatisticsTable(displayData.group_statistics)}
+                    <!-- GROUP STATISTICS SECTION -->
+                    <div style="background: #fff3e0; border: 2px solid #ff9800; border-radius: 8px; padding: 25px; margin: 20px 0;">
+                        <h2 style="color: #ff9800; font-size: 24px; margin: 0 0 20px 0;">📊 Group Statistics</h2>
+                        <div style="background: white; padding: 20px; border: 2px solid #ff9800; border-radius: 8px; overflow-x: auto;">
+                            ${generateGroupStatisticsTableStyled(displayData.group_statistics)}
+                        </div>
                     </div>
                     
-                    <div class="statistical-tests">
-                        <h4>Statistical Tests</h4>
-                        <div class="test-results">
+                    <!-- STATISTICAL TESTS SECTION -->
+                    <div style="background: #f3e5f5; border: 2px solid #9c27b0; border-radius: 8px; padding: 25px; margin: 20px 0;">
+                        <h2 style="color: #9c27b0; font-size: 24px; margin: 0 0 20px 0;">🔬 Statistical Tests</h2>
+                        <div style="background: white; padding: 20px; border: 2px solid #9c27b0; border-radius: 8px;">
                             ${Object.entries(displayData.tests).map(([testName, value]) => `
-                                <div class="test-result">
-                                    <span class="test-name">${testName}:</span>
-                                    <span class="test-value">${value}</span>
+                                <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid #eee;">
+                                    <span style="font-weight: bold; color: #4a148c; font-size: 16px;">${testName}:</span>
+                                    <span style="color: #6a1b9a; font-size: 16px; font-weight: bold;">${value}</span>
                                 </div>
                             `).join('')}
                         </div>
                     </div>
 
-                    <div class="interpretation-section">
-                        <h4>Interpretation</h4>
-                        <div class="interpretation-grid">
+                    <!-- INTERPRETATION SECTION -->
+                    <div style="background: #e3f2fd; border: 2px solid #2196f3; border-radius: 8px; padding: 25px; margin: 20px 0;">
+                        <h2 style="color: #2196f3; font-size: 24px; margin: 0 0 20px 0;">💡 Interpretation</h2>
+                        <div style="background: white; padding: 20px; border: 2px solid #2196f3; border-radius: 8px;">
                             ${Object.entries(displayData.interpretation).map(([key, value]) => `
-                                <div class="interpretation-item">
-                                    <span class="interpretation-label">${key.toUpperCase()}:</span>
-                                    <span class="interpretation-value">${value}</span>
+                                <div style="margin: 15px 0; padding: 15px; background: #f8f9fa; border-left: 4px solid #2196f3; border-radius: 4px;">
+                                    <div style="font-weight: bold; color: #0d47a1; font-size: 16px; margin-bottom: 8px;">${key.toUpperCase()}:</div>
+                                    <div style="color: #1565c0; font-size: 15px; line-height: 1.5;">${value}</div>
                                 </div>
                             `).join('')}
                         </div>
+                    </div>
+                    
+                    <div style="text-align: center; margin: 30px 0; padding: 20px; background: #f8f9fa; border-radius: 8px; border: 2px solid #6c757d;">
+                        <h3 style="color: #495057; margin: 0 0 15px 0;">🎉 Segment Analysis Complete!</h3>
+                        <p style="margin: 0; color: #6c757d;">All statistical comparisons between groups are shown above</p>
                     </div>
                 </div>
             `;
             
             container.innerHTML = html;
-            container.style.display = 'block';
+            container.style.cssText = 'display: block !important; visibility: visible !important; opacity: 1 !important; position: relative !important; height: auto !important;';
+            console.log('✅ Segment analysis displayed successfully with styled CSS');
             return;
         }
         
@@ -1137,82 +1154,92 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         
         const html = `
-            <div class="column-comparison-results">
-                <h3>Column Comparison Results</h3>
-                <p>Comparing <strong>${displayData.column1.column}</strong> vs <strong>${displayData.column2.column}</strong></p>
+            <div style="background: white; border: 3px solid #2196f3; border-radius: 8px; padding: 30px; margin: 20px 0; font-family: Arial, sans-serif;">
+                <h1 style="color: #2196f3; font-size: 32px; margin: 0 0 20px 0; text-align: center; border-bottom: 3px solid #2196f3; padding-bottom: 15px;">
+                    📊 Column Comparison Results
+                </h1>
+                <p style="text-align: center; font-size: 18px; margin: 0 0 30px 0; color: #666;">
+                    Comparing <strong>${displayData.column1.column}</strong> vs <strong>${displayData.column2.column}</strong>
+                </p>
                 
-                <div class="column-stats-grid">
-                    <div class="column-stats-card">
-                        <h4>${displayData.column1.dataset} - ${displayData.column1.column}</h4>
-                        <div class="stats-list">
-                            ${displayData.column1.stats ? Object.entries(displayData.column1.stats).map(([stat, value]) => `
-                                <div class="stat-row">
-                                    <span class="stat-name">${stat.replace('_', ' ').toUpperCase()}:</span>
-                                    <span class="stat-value">${
-                                        typeof value === 'number' ? value.toFixed(3) : 
-                                        (value !== null && value !== undefined ? value : 'N/A')
-                                    }</span>
-                                </div>
-                            `).join('') : '<p>No statistics available</p>'}
+                <!-- COLUMN STATISTICS SECTION -->
+                <div style="background: #e3f2fd; border: 2px solid #2196f3; border-radius: 8px; padding: 25px; margin: 20px 0;">
+                    <h2 style="color: #2196f3; font-size: 24px; margin: 0 0 20px 0;">📈 Column Statistics</h2>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                        <div style="background: white; padding: 20px; border: 2px solid #2196f3; border-radius: 8px;">
+                            <h3 style="color: #1565c0; margin: 0 0 15px 0; font-size: 18px;">${displayData.column1.dataset} - ${displayData.column1.column}</h3>
+                            <div style="margin: 10px 0;">
+                                ${displayData.column1.stats ? Object.entries(displayData.column1.stats).map(([stat, value]) => `
+                                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #f0f0f0;">
+                                        <span style="font-weight: bold; color: #0d47a1; font-size: 14px;">${stat.replace('_', ' ').toUpperCase()}:</span>
+                                        <span style="color: #1976d2; font-size: 14px; font-weight: bold;">${
+                                            typeof value === 'number' ? value.toFixed(3) : 
+                                            (value !== null && value !== undefined ? value : 'N/A')
+                                        }</span>
+                                    </div>
+                                `).join('') : '<p style="color: #666; font-style: italic;">No statistics available</p>'}
+                            </div>
                         </div>
-                    </div>
-                    
-                    <div class="column-stats-card">
-                        <h4>${displayData.column2.dataset} - ${displayData.column2.column}</h4>
-                        <div class="stats-list">
-                            ${displayData.column2.stats ? Object.entries(displayData.column2.stats).map(([stat, value]) => `
-                                <div class="stat-row">
-                                    <span class="stat-name">${stat.replace('_', ' ').toUpperCase()}:</span>
-                                    <span class="stat-value">${
-                                        typeof value === 'number' ? value.toFixed(3) : 
-                                        (value !== null && value !== undefined ? value : 'N/A')
-                                    }</span>
-                                </div>
-                            `).join('') : '<p>No statistics available</p>'}
+                        
+                        <div style="background: white; padding: 20px; border: 2px solid #2196f3; border-radius: 8px;">
+                            <h3 style="color: #1565c0; margin: 0 0 15px 0; font-size: 18px;">${displayData.column2.dataset} - ${displayData.column2.column}</h3>
+                            <div style="margin: 10px 0;">
+                                ${displayData.column2.stats ? Object.entries(displayData.column2.stats).map(([stat, value]) => `
+                                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #f0f0f0;">
+                                        <span style="font-weight: bold; color: #0d47a1; font-size: 14px;">${stat.replace('_', ' ').toUpperCase()}:</span>
+                                        <span style="color: #1976d2; font-size: 14px; font-weight: bold;">${
+                                            typeof value === 'number' ? value.toFixed(3) : 
+                                            (value !== null && value !== undefined ? value : 'N/A')
+                                        }</span>
+                                    </div>
+                                `).join('') : '<p style="color: #666; font-style: italic;">No statistics available</p>'}
+                            </div>
                         </div>
                     </div>
                 </div>
                 
                 ${displayData.summary ? `
-                    <div class="comparison-summary-section">
-                        <h4>Comparison Summary</h4>
-                        <div class="summary-stats">
-                            <div class="summary-item">
-                                <span class="summary-label">Data Types Match:</span>
-                                <span class="summary-value ${displayData.summary.data_type_match ? 'positive' : 'negative'}">
-                                    ${displayData.summary.data_type_match ? 'Yes' : 'No'}
+                    <!-- COMPARISON SUMMARY SECTION -->
+                    <div style="background: #fff3e0; border: 2px solid #ff9800; border-radius: 8px; padding: 25px; margin: 20px 0;">
+                        <h2 style="color: #ff9800; font-size: 24px; margin: 0 0 20px 0;">📋 Comparison Summary</h2>
+                        <div style="background: white; padding: 20px; border: 2px solid #ff9800; border-radius: 8px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid #eee;">
+                                <span style="font-weight: bold; color: #e65100; font-size: 16px;">Data Types Match:</span>
+                                <span style="color: ${displayData.summary.data_type_match ? '#4caf50' : '#f44336'}; font-size: 16px; font-weight: bold;">
+                                    ${displayData.summary.data_type_match ? '✅ Yes' : '❌ No'}
                                 </span>
                             </div>
-                            <div class="summary-item">
-                                <span class="summary-label">Size Difference:</span>
-                                <span class="summary-value">${displayData.summary.size_difference || 0} rows</span>
+                            <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid #eee;">
+                                <span style="font-weight: bold; color: #e65100; font-size: 16px;">Size Difference:</span>
+                                <span style="color: #f57c00; font-size: 16px; font-weight: bold;">${displayData.summary.size_difference || 0} rows</span>
                             </div>
                             ${displayData.summary.mean_difference ? `
-                                <div class="summary-item">
-                                    <span class="summary-label">Mean Difference:</span>
-                                    <span class="summary-value">${displayData.summary.mean_difference.toFixed(3)}</span>
+                                <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid #eee;">
+                                    <span style="font-weight: bold; color: #e65100; font-size: 16px;">Mean Difference:</span>
+                                    <span style="color: #f57c00; font-size: 16px; font-weight: bold;">${displayData.summary.mean_difference.toFixed(3)}</span>
+                                </div>
+                            ` : ''}
+                            ${displayData.summary.notes && displayData.summary.notes.length > 0 ? `
+                                <div style="margin-top: 15px; padding: 15px; background: #f8f9fa; border-left: 4px solid #ff9800; border-radius: 4px;">
+                                    <h4 style="color: #e65100; margin: 0 0 10px 0;">Notes:</h4>
+                                    <ul style="margin: 0; padding-left: 20px; color: #bf360c;">
+                                        ${displayData.summary.notes.map(note => `<li style="margin: 5px 0;">${note}</li>`).join('')}
+                                    </ul>
                                 </div>
                             ` : ''}
                         </div>
-                        ${displayData.summary.notes && displayData.summary.notes.length > 0 ? `
-                            <div class="summary-notes">
-                                <h5>Notes:</h5>
-                                <ul>
-                                    ${displayData.summary.notes.map(note => `<li>${note}</li>`).join('')}
-                                </ul>
-                            </div>
-                        ` : ''}
                     </div>
                 ` : ''}
                 
                 ${displayData.tests ? `
-                    <div class="statistical-tests">
-                        <h4>Statistical Tests</h4>
-                        <div class="test-results">
+                    <!-- STATISTICAL TESTS SECTION -->
+                    <div style="background: #f3e5f5; border: 2px solid #9c27b0; border-radius: 8px; padding: 25px; margin: 20px 0;">
+                        <h2 style="color: #9c27b0; font-size: 24px; margin: 0 0 20px 0;">🔬 Statistical Tests</h2>
+                        <div style="background: white; padding: 20px; border: 2px solid #9c27b0; border-radius: 8px;">
                             ${Object.entries(displayData.tests).map(([testName, value]) => `
-                                <div class="test-result">
-                                    <span class="test-name">${testName}:</span>
-                                    <span class="test-value">${value}</span>
+                                <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid #eee;">
+                                    <span style="font-weight: bold; color: #4a148c; font-size: 16px;">${testName}:</span>
+                                    <span style="color: #6a1b9a; font-size: 16px; font-weight: bold;">${value}</span>
                                 </div>
                             `).join('')}
                         </div>
@@ -1220,23 +1247,30 @@ document.addEventListener('DOMContentLoaded', function() {
                 ` : ''}
 
                 ${displayData.interpretation ? `
-                    <div class="interpretation-section">
-                        <h4>Interpretation</h4>
-                        <div class="interpretation-grid">
+                    <!-- INTERPRETATION SECTION -->
+                    <div style="background: #e8f5e8; border: 2px solid #4caf50; border-radius: 8px; padding: 25px; margin: 20px 0;">
+                        <h2 style="color: #4caf50; font-size: 24px; margin: 0 0 20px 0;">💡 Interpretation</h2>
+                        <div style="background: white; padding: 20px; border: 2px solid #4caf50; border-radius: 8px;">
                             ${Object.entries(displayData.interpretation).map(([key, value]) => `
-                                <div class="interpretation-item">
-                                    <span class="interpretation-label">${key.toUpperCase()}:</span>
-                                    <span class="interpretation-value">${value}</span>
+                                <div style="margin: 15px 0; padding: 15px; background: #f8f9fa; border-left: 4px solid #4caf50; border-radius: 4px;">
+                                    <div style="font-weight: bold; color: #2e7d32; font-size: 16px; margin-bottom: 8px;">${key.toUpperCase()}:</div>
+                                    <div style="color: #388e3c; font-size: 15px; line-height: 1.5;">${value}</div>
                                 </div>
                             `).join('')}
                         </div>
                     </div>
                 ` : ''}
+                
+                <div style="text-align: center; margin: 30px 0; padding: 20px; background: #f8f9fa; border-radius: 8px; border: 2px solid #6c757d;">
+                    <h3 style="color: #495057; margin: 0 0 15px 0;">🎉 Column Comparison Complete!</h3>
+                    <p style="margin: 0; color: #6c757d;">All statistical comparisons and analysis are shown above</p>
+                </div>
             </div>
         `;
         
         container.innerHTML = html;
-        container.style.display = 'block';
+        container.style.cssText = 'display: block !important; visibility: visible !important; opacity: 1 !important; position: relative !important; height: auto !important;';
+        console.log('✅ Column comparison displayed successfully with styled CSS');
     }
     
     function switchTab(tabName) {
@@ -1729,6 +1763,46 @@ document.addEventListener('DOMContentLoaded', function() {
         });
         
         html += '</tbody></table></div>';
+        return html;
+    }
+
+    function generateGroupStatisticsTableStyled(groupStats) {
+        if (!groupStats || Object.keys(groupStats).length === 0) {
+            return '<p style="color: #666; font-style: italic; text-align: center; padding: 20px;">No group statistics available. This may occur if there is insufficient data or the groups contain only missing values.</p>';
+        }
+        
+        let html = `
+            <table style="width: 100%; border-collapse: collapse; margin: 15px 0; background: white; border: 2px solid #ff9800;">
+                <thead>
+                    <tr style="background: #ff9800; color: white;">
+                        <th style="border: 1px solid #ff9800; padding: 12px; text-align: left; font-weight: bold;">Group</th>
+                        <th style="border: 1px solid #ff9800; padding: 12px; text-align: center; font-weight: bold;">Count</th>
+                        <th style="border: 1px solid #ff9800; padding: 12px; text-align: center; font-weight: bold;">Mean</th>
+                        <th style="border: 1px solid #ff9800; padding: 12px; text-align: center; font-weight: bold;">Std Dev</th>
+                        <th style="border: 1px solid #ff9800; padding: 12px; text-align: center; font-weight: bold;">Min</th>
+                        <th style="border: 1px solid #ff9800; padding: 12px; text-align: center; font-weight: bold;">Max</th>
+                        <th style="border: 1px solid #ff9800; padding: 12px; text-align: center; font-weight: bold;">Median</th>
+                    </tr>
+                </thead>
+                <tbody>
+        `;
+        
+        Object.entries(groupStats).forEach(([group, stats], index) => {
+            const rowColor = index % 2 === 0 ? '#fff3e0' : 'white';
+            html += `
+                <tr style="background: ${rowColor};">
+                    <td style="border: 1px solid #ff9800; padding: 10px; font-weight: bold; color: #e65100;">${group}</td>
+                    <td style="border: 1px solid #ff9800; padding: 10px; text-align: center; color: #f57c00;">${stats.count || 'N/A'}</td>
+                    <td style="border: 1px solid #ff9800; padding: 10px; text-align: center; color: #f57c00;">${typeof stats.mean === 'number' ? stats.mean.toFixed(3) : 'N/A'}</td>
+                    <td style="border: 1px solid #ff9800; padding: 10px; text-align: center; color: #f57c00;">${typeof stats.std === 'number' ? stats.std.toFixed(3) : 'N/A'}</td>
+                    <td style="border: 1px solid #ff9800; padding: 10px; text-align: center; color: #f57c00;">${typeof stats.min === 'number' ? stats.min.toFixed(3) : 'N/A'}</td>
+                    <td style="border: 1px solid #ff9800; padding: 10px; text-align: center; color: #f57c00;">${typeof stats.max === 'number' ? stats.max.toFixed(3) : 'N/A'}</td>
+                    <td style="border: 1px solid #ff9800; padding: 10px; text-align: center; color: #f57c00;">${typeof stats.median === 'number' ? stats.median.toFixed(3) : 'N/A'}</td>
+                </tr>
+            `;
+        });
+        
+        html += '</tbody></table>';
         return html;
     }
 });
