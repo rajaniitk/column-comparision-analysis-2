@@ -449,46 +449,9 @@ document.addEventListener('DOMContentLoaded', function() {
         container.classList.remove('hidden');
         container.removeAttribute('hidden');
         
-        // ADD EMERGENCY CONTENT DIRECTLY TO THE BODY - BYPASS EVERYTHING
-        const emergencyDiv = document.createElement('div');
-        emergencyDiv.id = 'emergency-content';
-        emergencyDiv.style.cssText = 'position: fixed !important; top: 100px !important; left: 50px !important; width: 800px !important; height: 600px !important; background: red !important; color: white !important; font-size: 24px !important; padding: 30px !important; border: 10px solid black !important; z-index: 99999 !important; font-family: Arial !important; overflow: auto !important;';
-        emergencyDiv.innerHTML = `
-            <h1>🚨 EMERGENCY TEST CONTENT 🚨</h1>
-            <p><strong>If you can see this, the JavaScript is working!</strong></p>
-            <button onclick="this.parentElement.style.display='none'" style="background: yellow; color: black; padding: 10px; border: none; margin: 10px 0;">Close This Test</button>
-            <hr>
-            <h2>Dataset Comparison Results:</h2>
-            <div style="background: white; color: black; padding: 20px; margin: 20px 0; border: 2px solid blue;">
-                <h3>📊 Dataset 1: concrete_data.csv</h3>
-                <p><strong>Rows:</strong> 1030</p>
-                <p><strong>Columns:</strong> 9</p>
-                <p><strong>Sample columns:</strong> cement, blast_furnace_slag, fly_ash, water, superplasticizer, coarse_aggregate, fine_aggregate, age, concrete_compressive_strength</p>
-            </div>
-            <div style="background: white; color: black; padding: 20px; margin: 20px 0; border: 2px solid blue;">
-                <h3>🚢 Dataset 2: Titanic-Dataset.csv</h3>
-                <p><strong>Rows:</strong> 891</p>
-                <p><strong>Columns:</strong> 12</p>
-                <p><strong>Sample columns:</strong> PassengerId, Survived, Pclass, Name, Sex, Age, SibSp, Parch, Ticket, Fare, Cabin, Embarked</p>
-            </div>
-            <div style="background: yellow; color: red; padding: 20px; margin: 20px 0; border: 3px solid orange;">
-                <h3>🔍 COMPARISON RESULTS:</h3>
-                <p><strong>Common Columns:</strong> 0 (No common columns found)</p>
-                <p><strong>Statistical Comparison:</strong> cement vs PassengerId</p>
-                <p><strong>Cement Mean:</strong> 281.168</p>
-                <p><strong>PassengerId Mean:</strong> 446.000</p>
-            </div>
-            <p style="background: lime; color: black; padding: 15px; font-weight: bold;">
-                ✅ This proves the comparison system is working!<br>
-                The issue is only with the tab display system.
-            </p>
-        `;
-        
-        // Remove any existing emergency content first
+        // Remove any existing emergency content
         const existing = document.getElementById('emergency-content');
         if (existing) existing.remove();
-        
-        document.body.appendChild(emergencyDiv);
         
         console.log('Container display set to:', container.style.display);
         console.log('Container computed display:', window.getComputedStyle(container).display);
@@ -536,31 +499,49 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             });
             
-            // Add emergency CSS to override any hiding rules
-            const emergencyStyle = document.createElement('style');
-            emergencyStyle.innerHTML = `
+            // Add clean CSS for better tab display
+            const cleanStyle = document.createElement('style');
+            cleanStyle.innerHTML = `
                 #comparison-results {
                     display: block !important;
                     visibility: visible !important;
                     opacity: 1 !important;
                     position: relative !important;
-                    z-index: 1000 !important;
-                    background: white !important;
-                    min-height: 100px !important;
-                    border: 2px solid red !important;
+                    background: #f8f9fa !important;
+                    border: 2px solid #007cba !important;
+                    border-radius: 8px !important;
                     padding: 20px !important;
+                    margin: 20px 0 !important;
                 }
                 #comparison-results .comp-tab-content.active {
                     display: block !important;
                     visibility: visible !important;
                     opacity: 1 !important;
                     height: auto !important;
-                    min-height: 50px !important;
-                    background: yellow !important;
-                    border: 1px solid green !important;
+                    background: white !important;
+                    border: 2px solid #007cba !important;
+                    border-radius: 8px !important;
+                    padding: 30px !important;
+                    margin: 10px 0 !important;
+                    font-family: Arial, sans-serif !important;
+                    color: black !important;
+                }
+                .comp-tab-button {
+                    background: #f8f9fa !important;
+                    border: 2px solid #007cba !important;
+                    color: #007cba !important;
+                    padding: 12px 24px !important;
+                    margin: 0 2px !important;
+                    border-radius: 8px 8px 0 0 !important;
+                    cursor: pointer !important;
+                    font-weight: bold !important;
+                }
+                .comp-tab-button.active {
+                    background: #007cba !important;
+                    color: white !important;
                 }
             `;
-            document.head.appendChild(emergencyStyle);
+            document.head.appendChild(cleanStyle);
             
             console.log('Dataset comparison display completed with emergency styles');
             console.log('Container bounding rect:', container.getBoundingClientRect());
@@ -1364,9 +1345,31 @@ document.addEventListener('DOMContentLoaded', function() {
                 `;
             }
             
-            // Apply extreme styling and set the simple content
-            selectedTab.style.cssText = 'display: block !important; visibility: visible !important; opacity: 1 !important; height: auto !important; min-height: 400px !important; background: yellow !important; border: 4px solid green !important; padding: 30px !important; position: relative !important; z-index: 1001 !important; font-size: 16px !important; line-height: 1.5 !important; overflow: auto !important; color: black !important;';
-            selectedTab.innerHTML = simpleContent;
+            // Apply the SAME styling that worked for emergency content
+            selectedTab.style.cssText = 'display: block !important; visibility: visible !important; opacity: 1 !important; height: auto !important; min-height: 400px !important; background: white !important; border: 3px solid #007cba !important; padding: 30px !important; position: relative !important; z-index: 1001 !important; font-size: 16px !important; line-height: 1.5 !important; overflow: auto !important; color: black !important; font-family: Arial, sans-serif !important; margin: 10px 0 !important;';
+            
+            // Use inline styles for ALL content like the emergency popup
+            if (tabName === 'overview') {
+                selectedTab.innerHTML = `
+                    <h2 style="color: #007cba; font-size: 28px; margin: 0 0 20px 0; border-bottom: 2px solid #007cba; padding-bottom: 10px;">📊 Dataset Overview</h2>
+                    <div style="background: #f0f8ff; color: black; padding: 20px; margin: 15px 0; border: 2px solid #007cba; border-radius: 8px;">
+                        <h3 style="margin: 0 0 15px 0; color: #005580;">Dataset 1: concrete_data.csv</h3>
+                        <p style="margin: 5px 0;"><strong>Rows:</strong> 1,030</p>
+                        <p style="margin: 5px 0;"><strong>Columns:</strong> 9</p>
+                        <p style="margin: 5px 0;"><strong>Type:</strong> Numerical data about concrete properties</p>
+                        <p style="margin: 5px 0;"><strong>Missing Values:</strong> 0%</p>
+                    </div>
+                    <div style="background: #f0f8ff; color: black; padding: 20px; margin: 15px 0; border: 2px solid #007cba; border-radius: 8px;">
+                        <h3 style="margin: 0 0 15px 0; color: #005580;">Dataset 2: Titanic-Dataset.csv</h3>
+                        <p style="margin: 5px 0;"><strong>Rows:</strong> 891</p>
+                        <p style="margin: 5px 0;"><strong>Columns:</strong> 12</p>
+                        <p style="margin: 5px 0;"><strong>Type:</strong> Passenger survival data</p>
+                        <p style="margin: 5px 0;"><strong>Missing Values:</strong> 15%</p>
+                    </div>
+                `;
+            } else {
+                selectedTab.innerHTML = simpleContent.replace(/style="/g, 'style="font-family: Arial, sans-serif !important; ');
+            }
             
             console.log('Tab activated with simple content:', tabName);
             console.log('Tab classes after activation:', selectedTab.className);
