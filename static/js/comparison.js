@@ -407,6 +407,7 @@ document.addEventListener('DOMContentLoaded', function() {
         
         console.log('Generating HTML for comparison results');
         console.log('Quality comparison data:', comparison.quality_comparison);
+        console.log('Quality data structure check:', comparison.quality_comparison && comparison.quality_comparison[0]);
         
         // USE REAL DATA from the comparison object
         let html = `
@@ -610,36 +611,71 @@ document.addEventListener('DOMContentLoaded', function() {
                                 const consistency = getQualityValue(quality.consistency);
                                 const validity = getQualityValue(quality.validity);
                                 const uniqueness = getQualityValue(quality.uniqueness);
+                                const accuracy = getQualityValue(quality.accuracy);
+                                const overallScore = quality.overall_score ? Math.round(quality.overall_score) : 'N/A';
                                 
                                 return `
                                     <div style="background: white; padding: 20px; border: 2px solid #ff9800; border-radius: 8px;">
-                                        <h3 style="color: #e65100; margin: 0 0 15px 0;">${quality.dataset || quality.name || 'Dataset'}</h3>
-                                        <div style="margin: 10px 0;">
-                                            <p style="margin: 5px 0; display: flex; justify-content: space-between;">
-                                                <span>📊 Completeness:</span>
-                                                <strong style="color: ${getQualityColor(quality.completeness)};">${completeness}</strong>
-                                            </p>
-                                            <p style="margin: 5px 0; display: flex; justify-content: space-between;">
-                                                <span>🔄 Consistency:</span>
-                                                <strong style="color: ${getQualityColor(quality.consistency)};">${consistency}</strong>
-                                            </p>
-                                            <p style="margin: 5px 0; display: flex; justify-content: space-between;">
-                                                <span>✓ Validity:</span>
-                                                <strong style="color: ${getQualityColor(quality.validity)};">${validity}</strong>
-                                            </p>
-                                            <p style="margin: 5px 0; display: flex; justify-content: space-between;">
-                                                <span>🎯 Uniqueness:</span>
-                                                <strong style="color: ${getQualityColor(quality.uniqueness)};">${uniqueness}</strong>
-                                            </p>
-                                            ${quality.issues && quality.issues.length > 0 ? `
-                                                <div style="margin-top: 15px; padding: 10px; background: #ffebee; border-left: 4px solid #f44336; border-radius: 4px;">
-                                                    <h4 style="color: #d32f2f; margin: 0 0 8px 0; font-size: 14px;">Issues Found:</h4>
-                                                    <ul style="margin: 0; padding-left: 20px; color: #c62828; font-size: 13px;">
-                                                        ${quality.issues.map(issue => `<li>${issue}</li>`).join('')}
-                                                    </ul>
+                                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                                            <h3 style="color: #e65100; margin: 0;">${quality.dataset || quality.name || 'Dataset'}</h3>
+                                            <div style="background: ${getQualityColor(quality.overall_score)}; color: white; padding: 8px 16px; border-radius: 20px; font-weight: bold;">
+                                                Overall: ${overallScore}${typeof overallScore === 'number' ? '%' : ''}
+                                            </div>
+                                        </div>
+                                        
+                                        <div style="margin: 15px 0;">
+                                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px;">
+                                                <div style="display: flex; justify-content: space-between; padding: 8px; background: #f8f9fa; border-radius: 4px;">
+                                                    <span style="font-weight: 500;">📊 Completeness:</span>
+                                                    <strong style="color: ${getQualityColor(quality.completeness)};">${completeness}</strong>
+                                                </div>
+                                                <div style="display: flex; justify-content: space-between; padding: 8px; background: #f8f9fa; border-radius: 4px;">
+                                                    <span style="font-weight: 500;">🔄 Consistency:</span>
+                                                    <strong style="color: ${getQualityColor(quality.consistency)};">${consistency}</strong>
+                                                </div>
+                                                <div style="display: flex; justify-content: space-between; padding: 8px; background: #f8f9fa; border-radius: 4px;">
+                                                    <span style="font-weight: 500;">✓ Validity:</span>
+                                                    <strong style="color: ${getQualityColor(quality.validity)};">${validity}</strong>
+                                                </div>
+                                                <div style="display: flex; justify-content: space-between; padding: 8px; background: #f8f9fa; border-radius: 4px;">
+                                                    <span style="font-weight: 500;">🎯 Uniqueness:</span>
+                                                    <strong style="color: ${getQualityColor(quality.uniqueness)};">${uniqueness}</strong>
+                                                </div>
+                                            </div>
+                                            
+                                            ${quality.accuracy !== undefined ? `
+                                                <div style="display: flex; justify-content: space-between; padding: 8px; background: #f8f9fa; border-radius: 4px; margin-bottom: 15px;">
+                                                    <span style="font-weight: 500;">🎯 Accuracy:</span>
+                                                    <strong style="color: ${getQualityColor(quality.accuracy)};">${accuracy}</strong>
                                                 </div>
                                             ` : ''}
                                         </div>
+                                        
+                                        ${quality.issues && quality.issues.length > 0 ? `
+                                            <div style="margin-top: 15px; padding: 12px; background: #ffebee; border-left: 4px solid #f44336; border-radius: 4px;">
+                                                <h4 style="color: #d32f2f; margin: 0 0 8px 0; font-size: 14px; font-weight: bold;">⚠️ Issues Detected:</h4>
+                                                <ul style="margin: 0; padding-left: 18px; color: #c62828; font-size: 13px;">
+                                                    ${quality.issues.slice(0, 3).map(issue => `<li style="margin: 4px 0;">${issue}</li>`).join('')}
+                                                    ${quality.issues.length > 3 ? `<li style="color: #999; font-style: italic;">... and ${quality.issues.length - 3} more issues</li>` : ''}
+                                                </ul>
+                                            </div>
+                                        ` : `
+                                            <div style="margin-top: 15px; padding: 12px; background: #e8f5e8; border-left: 4px solid #4caf50; border-radius: 4px;">
+                                                <p style="color: #2e7d32; margin: 0; font-size: 14px; font-weight: 500;">
+                                                    ✅ No major quality issues detected
+                                                </p>
+                                            </div>
+                                        `}
+                                        
+                                        ${quality.recommendations && quality.recommendations.length > 0 ? `
+                                            <div style="margin-top: 15px; padding: 12px; background: #e3f2fd; border-left: 4px solid #2196f3; border-radius: 4px;">
+                                                <h4 style="color: #1565c0; margin: 0 0 8px 0; font-size: 14px; font-weight: bold;">💡 Recommendations:</h4>
+                                                <ul style="margin: 0; padding-left: 18px; color: #1976d2; font-size: 13px;">
+                                                    ${quality.recommendations.slice(0, 2).map(rec => `<li style="margin: 4px 0;">${rec}</li>`).join('')}
+                                                    ${quality.recommendations.length > 2 ? `<li style="color: #999; font-style: italic;">... and ${quality.recommendations.length - 2} more recommendations</li>` : ''}
+                                                </ul>
+                                            </div>
+                                        ` : ''}
                                     </div>
                                 `;
                             }).join('')

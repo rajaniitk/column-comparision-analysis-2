@@ -1,6 +1,7 @@
 from flask import Blueprint, request, jsonify, render_template, current_app, session
 from services.comparison import Comparison
 from services.data_processor import DataProcessor
+from services.quality_analyzer import QualityAnalyzer
 from database import db
 from models import Dataset, Analysis
 import logging
@@ -314,46 +315,35 @@ def compare_datasets():
         
         current_app.logger.info(f"Before quality comparison. Statistical comparison length: {len(comparison_result['statistical_comparison'])}")
         
-        # Generate quality comparison
+        # Generate comprehensive quality comparison using QualityAnalyzer
+        quality_analyzer = QualityAnalyzer()
         for dataset in datasets:
             try:
                 df = processor.load_dataset(dataset)
+                current_app.logger.info(f"Analyzing quality for dataset: {dataset.filename}")
                 
-                # Calculate quality metrics
-                total_cells = df.shape[0] * df.shape[1]
-                missing_cells = df.isnull().sum().sum()
-                completeness = ((total_cells - missing_cells) / total_cells * 100) if total_cells > 0 else 0
-                
-                # Estimate other quality metrics
-                duplicates = df.duplicated().sum()
-                uniqueness = ((df.shape[0] - duplicates) / df.shape[0] * 100) if df.shape[0] > 0 else 0
-                
-                # Simple validity check (non-null values in required columns)
-                validity = 85 + (completeness * 0.15)  # Simple approximation
-                
-                # Consistency (similar to validity for now)
-                consistency = max(80, completeness * 0.95)
+                # Use comprehensive quality analysis
+                quality_analysis = quality_analyzer.analyze_dataset_quality(df, dataset.filename)
                 
                 comparison_result['quality_comparison'].append({
-                    'dataset_name': dataset.filename,
-                    'quality_metrics': {
-                        'completeness': round(completeness, 1),
-                        'consistency': round(consistency, 1),
-                        'validity': round(validity, 1),
-                        'uniqueness': round(uniqueness, 1)
-                    }
+                    'dataset': dataset.filename,
+                    'completeness': quality_analysis['completeness'],
+                    'consistency': quality_analysis['consistency'],
+                    'validity': quality_analysis['validity'],
+                    'uniqueness': quality_analysis['uniqueness'],
+                    'accuracy': quality_analysis['accuracy'],
+                    'overall_score': quality_analysis['overall_score'],
+                    'issues': quality_analysis['issues'],
+                    'recommendations': quality_analysis['recommendations'],
+                    'detailed_analysis': quality_analysis['detailed_analysis']
                 })
+                current_app.logger.info(f"Quality analysis completed for {dataset.filename}: overall score {quality_analysis['overall_score']}")
+                
             except Exception as e:
-                logging.warning(f"Could not calculate quality metrics for dataset {dataset.id}: {str(e)}")
-                comparison_result['quality_comparison'].append({
-                    'dataset_name': dataset.filename,
-                    'quality_metrics': {
-                        'completeness': 85.0,
-                        'consistency': 80.0,
-                        'validity': 90.0,
-                        'uniqueness': 75.0
-                    }
-                })
+                current_app.logger.error(f"Could not calculate quality metrics for dataset {dataset.id}: {str(e)}")
+                # Return error quality result
+                error_quality = quality_analyzer._error_quality_result(dataset.filename, str(e))
+                comparison_result['quality_comparison'].append(error_quality)
         
         current_app.logger.info(f"Final result before return. Statistical comparison length: {len(comparison_result['statistical_comparison'])}")
         current_app.logger.info(f"Statistical comparison content: {comparison_result['statistical_comparison']}")
@@ -627,3 +617,86 @@ def compare_distributions(dataset_id):
     except Exception as e:
         current_app.logger.error(f"Distribution comparison error: {str(e)}")
         return jsonify({'success': False, 'error': f'Distribution comparison failed: {str(e)}'}), 500
+
+@comparison_bp.route('/quality/<int:dataset_id>', methods=['GET'])
+def analyze_dataset_quality(dataset_id):
+    """Analyze data quality for a single dataset"""
+    try:
+        dataset = Dataset.query.get_or_404(dataset_id)
+        processor = DataProcessor()
+        quality_analyzer = QualityAnalyzer()
+        
+        # Load the dataset
+        df = processor.load_dataset(dataset)
+        
+        # Perform quality analysis
+        quality_analysis = quality_analyzer.analyze_dataset_quality(df, dataset.filename)
+        
+        current_app.logger.info(f"Quality analysis completed for {dataset.filename}")
+        current_app.logger.info(f"Overall quality score: {quality_analysis['overall_score']}")
+        
+        return jsonify({
+            'success': True,
+            'quality_analysis': quality_analysis
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Quality analysis error for dataset {dataset_id}: {str(e)}")
+        return jsonify({
+            'success': False, 
+            'error': f'Quality analysis failed: {str(e)}'
+        }), 500
+
+@comparison_bp.route('/quality/batch', methods=['POST'])
+def analyze_multiple_datasets_quality():
+    """Analyze data quality for multiple datasets"""
+    try:
+        data = request.get_json()
+        dataset_ids = data.get('dataset_ids', [])
+        
+        if not dataset_ids:
+            return jsonify({'success': False, 'error': 'No dataset IDs provided'}), 400
+        
+        processor = DataProcessor()
+        quality_analyzer = QualityAnalyzer()
+        results = []
+        
+        for dataset_id in dataset_ids:
+            try:
+                dataset = Dataset.query.get(dataset_id)
+                if not dataset:
+                    results.append({
+                        'dataset_id': dataset_id,
+                        'dataset_name': 'Unknown',
+                        'error': 'Dataset not found'
+                    })
+                    continue
+                
+                df = processor.load_dataset(dataset)
+                quality_analysis = quality_analyzer.analyze_dataset_quality(df, dataset.filename)
+                
+                results.append({
+                    'dataset_id': dataset_id,
+                    'dataset_name': dataset.filename,
+                    'quality_analysis': quality_analysis
+                })
+                
+            except Exception as e:
+                current_app.logger.error(f"Error analyzing dataset {dataset_id}: {str(e)}")
+                results.append({
+                    'dataset_id': dataset_id,
+                    'dataset_name': dataset.filename if 'dataset' in locals() else 'Unknown',
+                    'error': str(e)
+                })
+        
+        return jsonify({
+            'success': True,
+            'results': results
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Batch quality analysis error: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': f'Batch quality analysis failed: {str(e)}'
+        }), 500
