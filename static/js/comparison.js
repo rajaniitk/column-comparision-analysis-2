@@ -492,47 +492,61 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     function generateSchemaHTML(schema) {
+        if (!schema) {
+            return '<div class="no-schema-message"><p>No schema comparison data available.</p></div>';
+        }
+        
+        const commonColumns = schema.common_columns || [];
+        const uniqueColumns = schema.unique_columns || {};
+        const typeDifferences = schema.data_type_differences || [];
+        
         return `
             <div class="schema-comparison">
                 <div class="schema-section">
-                    <h4>Common Columns</h4>
+                    <h4>Common Columns (${commonColumns.length})</h4>
                     <div class="column-list">
-                        ${schema.common_columns.map(col => `<span class="column-tag common">${col}</span>`).join('')}
+                        ${commonColumns.length > 0 
+                            ? commonColumns.map(col => `<span class="column-tag common">${col}</span>`).join('')
+                            : '<p class="no-data">No common columns found between datasets.</p>'}
                     </div>
                 </div>
                 
                 <div class="schema-section">
                     <h4>Unique Columns</h4>
-                    ${Object.entries(schema.unique_columns).map(([dataset, columns]) => `
-                        <div class="unique-columns">
-                            <h5>${dataset}</h5>
-                            <div class="column-list">
-                                ${columns.map(col => `<span class="column-tag unique">${col}</span>`).join('')}
+                    ${Object.keys(uniqueColumns).length > 0 
+                        ? Object.entries(uniqueColumns).map(([dataset, columns]) => `
+                            <div class="unique-columns">
+                                <h5>${dataset} (${columns.length} unique columns)</h5>
+                                <div class="column-list">
+                                    ${columns.map(col => `<span class="column-tag unique">${col}</span>`).join('')}
+                                </div>
                             </div>
-                        </div>
-                    `).join('')}
+                        `).join('')
+                        : '<p class="no-data">No unique columns found.</p>'}
                 </div>
                 
                 <div class="schema-section">
                     <h4>Data Type Differences</h4>
-                    <table class="type-differences-table">
-                        <thead>
-                            <tr>
-                                <th>Column</th>
-                                <th>Dataset 1</th>
-                                <th>Dataset 2</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${schema.data_type_differences.map(diff => `
+                    ${typeDifferences.length > 0 
+                        ? `<table class="type-differences-table">
+                            <thead>
                                 <tr>
-                                    <td>${diff.column}</td>
-                                    <td><code>${diff.dataset1}</code></td>
-                                    <td><code>${diff.dataset2}</code></td>
+                                    <th>Column</th>
+                                    <th>Dataset 1</th>
+                                    <th>Dataset 2</th>
                                 </tr>
-                            `).join('')}
-                        </tbody>
-                    </table>
+                            </thead>
+                            <tbody>
+                                ${typeDifferences.map(diff => `
+                                    <tr>
+                                        <td>${diff.column}</td>
+                                        <td><code>${diff.dataset1}</code></td>
+                                        <td><code>${diff.dataset2}</code></td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>`
+                        : '<p class="no-data">No data type differences found for common columns.</p>'}
                 </div>
             </div>
         `;
@@ -717,13 +731,23 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     function generateQualityHTML(quality) {
+        if (!quality || quality.length === 0) {
+            return `
+                <div class="no-quality-message">
+                    <h4>No Quality Data Available</h4>
+                    <p>Quality metrics could not be calculated for the selected datasets.</p>
+                    <p>This may occur when datasets are empty or cannot be loaded.</p>
+                </div>
+            `;
+        }
+        
         return `
             <div class="quality-comparison">
                 ${quality.map(q => `
                     <div class="quality-card">
                         <h4>${q.dataset_name}</h4>
                         <div class="quality-metrics">
-                            ${Object.entries(q.quality_metrics).map(([metric, value]) => `
+                            ${Object.entries(q.quality_metrics || {}).map(([metric, value]) => `
                                 <div class="quality-metric">
                                     <span class="metric-name">${metric.charAt(0).toUpperCase() + metric.slice(1)}</span>
                                     <div class="metric-bar">
@@ -1117,18 +1141,15 @@ document.addEventListener('DOMContentLoaded', function() {
     function switchTab(tabName) {
         console.log('switchTab called with:', tabName);
         
-        // Handle both comparison tabs and detailed comparison tabs
-        const allTabs = document.querySelectorAll('.comp-tab-content, .tab-pane');
-        const allButtons = document.querySelectorAll('.comp-tab-button, .comparison-tab');
+        // Find all tab content elements
+        const allTabs = document.querySelectorAll('.comp-tab-content');
+        const allButtons = document.querySelectorAll('.comp-tab-button');
         
         console.log('Found tabs:', allTabs.length, 'Found buttons:', allButtons.length);
         
-        // Hide all tabs
+        // Hide all tabs - use simple approach
         allTabs.forEach(tab => {
             tab.classList.remove('active');
-            tab.style.display = 'none';
-            tab.style.visibility = 'hidden';
-            tab.style.opacity = '0';
         });
         
         // Remove active from all buttons
@@ -1137,22 +1158,10 @@ document.addEventListener('DOMContentLoaded', function() {
         // Show selected tab
         const selectedTab = document.getElementById(tabName);
         console.log('Selected tab element:', selectedTab);
-        console.log('Selected tab innerHTML length:', selectedTab ? selectedTab.innerHTML.length : 'not found');
         
         if (selectedTab) {
             selectedTab.classList.add('active');
-            selectedTab.style.display = 'block';
-            selectedTab.style.visibility = 'visible';
-            selectedTab.style.opacity = '1';
-            
-            // Force with setAttribute as backup
-            selectedTab.setAttribute('style', 'display: block !important; visibility: visible !important; opacity: 1 !important;');
-            
-            // Double-check the changes were applied
-            console.log('After setting active - classList:', selectedTab.classList.toString());
-            console.log('After setting active - style.display:', selectedTab.style.display);
-            console.log('After setting active - computed display:', window.getComputedStyle(selectedTab).display);
-            console.log('Tab should now be visible:', tabName);
+            console.log('Tab activated:', tabName);
             
             // Also activate the corresponding button
             const correspondingButton = document.querySelector(`[data-tab="${tabName}"]`);
@@ -1162,12 +1171,6 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         } else {
             console.error('Could not find tab with ID:', tabName);
-        }
-        
-        // Activate corresponding button
-        const activeButton = document.querySelector(`[data-tab="${tabName}"]`);
-        if (activeButton) {
-            activeButton.classList.add('active');
         }
     }
     
@@ -1510,348 +1513,366 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
-// Add CSS for comparison functionality
-const comparisonCSS = `
-<style>
-.dataset-checkbox {
-    display: flex;
-    align-items: flex-start;
-    gap: 10px;
-    margin: 10px 0;
-    padding: 12px;
-    border: 1px solid #e2e8f0;
-    border-radius: 8px;
-    transition: background-color 0.2s;
+// Inject CSS styles for comparison functionality
+function injectComparisonCSS() {
+    const existingStyle = document.getElementById('comparison-styles');
+    if (existingStyle) {
+        return; // Already injected
+    }
+    
+    const style = document.createElement('style');
+    style.id = 'comparison-styles';
+    style.textContent = `
+        /* Tab functionality styles */
+        .comp-tab-content {
+            display: none;
+            padding: 20px;
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-top: none;
+            border-radius: 0 0 8px 8px;
+        }
+
+        .comp-tab-content.active {
+            display: block !important;
+        }
+
+        .comp-tab-button {
+            background: #f1f5f9;
+            border: 1px solid #cbd5e1;
+            border-bottom: none;
+            padding: 12px 24px;
+            cursor: pointer;
+            border-radius: 8px 8px 0 0;
+            transition: all 0.2s;
+            color: #64748b;
+        }
+
+        .comp-tab-button.active {
+            background: white;
+            color: #1e293b;
+            border-color: #e2e8f0;
+            border-bottom: 1px solid white;
+            margin-bottom: -1px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .comp-tab-button:hover {
+            background: #e2e8f0;
+            color: #1e293b;
+        }
+
+        .comparison-tabs {
+            display: flex;
+            gap: 2px;
+            margin: 20px 0 0 0;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .tab-content {
+            position: relative;
+        }
+
+        /* Statistics comparison styles */
+        .statistics-comparison {
+            padding: 20px 0;
+        }
+
+        .statistic-section {
+            margin-bottom: 30px;
+            background: #f8fafc;
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid #e2e8f0;
+        }
+
+        .statistic-section h5 {
+            margin: 0 0 15px 0;
+            color: #1e293b;
+        }
+
+        .column-type {
+            font-size: 0.85em;
+            color: #64748b;
+            font-weight: normal;
+        }
+
+        .statistics-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            border-radius: 6px;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .statistics-table th,
+        .statistics-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .statistics-table th {
+            background: #f1f5f9;
+            color: #374151;
+            font-weight: 600;
+        }
+
+        .statistics-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        .statistics-table tr:hover {
+            background: #f8fafc;
+        }
+
+        /* Schema comparison styles */
+        .schema-comparison {
+            padding: 20px 0;
+        }
+
+        .schema-section {
+            margin-bottom: 25px;
+        }
+
+        .schema-section h4 {
+            margin: 0 0 15px 0;
+            color: #1e293b;
+        }
+
+        .column-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin: 10px 0;
+        }
+
+        .column-tag {
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            font-weight: 500;
+        }
+
+        .column-tag.common {
+            background: #d1fae5;
+            color: #065f46;
+            border: 1px solid #a7f3d0;
+        }
+
+        .column-tag.unique {
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #fde68a;
+        }
+
+        .unique-columns {
+            margin: 15px 0;
+            padding: 15px;
+            background: #f8fafc;
+            border-radius: 6px;
+            border: 1px solid #e2e8f0;
+        }
+
+        .unique-columns h5 {
+            margin: 0 0 10px 0;
+            color: #374151;
+        }
+
+        .type-differences-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            border-radius: 6px;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .type-differences-table th,
+        .type-differences-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .type-differences-table th {
+            background: #f1f5f9;
+            color: #374151;
+            font-weight: 600;
+        }
+
+        .type-differences-table code {
+            background: #f1f5f9;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+        }
+
+        /* Quality comparison styles */
+        .quality-comparison {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            padding: 20px 0;
+        }
+
+        .quality-card {
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .quality-card h4 {
+            margin: 0 0 20px 0;
+            color: #1e293b;
+        }
+
+        .quality-metrics {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .quality-metric {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .metric-name {
+            font-weight: 500;
+            color: #374151;
+            font-size: 0.9em;
+        }
+
+        .metric-bar {
+            position: relative;
+            height: 20px;
+            background: #f1f5f9;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        .metric-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #ef4444 0%, #f59e0b 50%, #10b981 100%);
+            border-radius: 10px;
+            transition: width 0.3s ease;
+        }
+
+        .metric-value {
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 0.8em;
+            font-weight: 600;
+            color: #1e293b;
+        }
+
+        /* Error and loading states */
+        .no-stats-message {
+            padding: 40px;
+            text-align: center;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            color: #64748b;
+        }
+
+        .no-stats-message h4 {
+            color: #374151;
+            margin-bottom: 15px;
+        }
+
+        .no-stats-message ul {
+            text-align: left;
+            max-width: 400px;
+            margin: 0 auto;
+        }
+
+        .comparison-error {
+            padding: 30px;
+            background: #fef2f2;
+            border: 1px solid #fecaca;
+            border-radius: 8px;
+            color: #991b1b;
+        }
+
+        .comparison-error h3 {
+            margin: 0 0 15px 0;
+            color: #dc2626;
+        }
+
+        .error-suggestions {
+            margin-top: 20px;
+        }
+
+        .error-suggestions h4 {
+            margin: 0 0 10px 0;
+            color: #dc2626;
+        }
+
+        .error-suggestions ul {
+            margin: 0;
+            padding-left: 20px;
+        }
+
+        /* Overview grid styles */
+        .overview-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin: 20px 0;
+        }
+
+        .dataset-overview-card {
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .dataset-overview-card h4 {
+            margin: 0 0 15px 0;
+            color: #1e293b;
+        }
+
+        .overview-stats {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .stat {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .stat .label {
+            color: #64748b;
+            font-weight: 500;
+        }
+
+        .stat .value {
+            color: #1e293b;
+            font-weight: 600;
+        }
+    `;
+    
+    document.head.appendChild(style);
 }
 
-.dataset-checkbox:hover {
-    background: #f8fafc;
+// Inject CSS when DOM is loaded
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', injectComparisonCSS);
+} else {
+    injectComparisonCSS();
 }
-
-.dataset-checkbox input[type="checkbox"] {
-    margin-top: 2px;
-}
-
-.dataset-checkbox label {
-    flex: 1;
-    cursor: pointer;
-    margin: 0;
-}
-
-.dataset-checkbox label strong {
-    display: block;
-    color: #1e293b;
-    margin-bottom: 4px;
-}
-
-.dataset-info {
-    color: #64748b;
-    font-size: 0.9em;
-}
-
-.overview-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-    gap: 20px;
-    margin: 20px 0;
-}
-
-.dataset-overview-card {
-    background: white;
-    border: 1px solid #e2e8f0;
-    border-radius: 8px;
-    padding: 20px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-}
-
-.dataset-overview-card h4 {
-    margin: 0 0 15px 0;
-    color: #1e293b;
-}
-
-.overview-stats {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-}
-
-.stat {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-
-.stat .label {
-    color: #64748b;
-    font-weight: 500;
-}
-
-.stat .value {
-    color: #1e293b;
-    font-weight: 600;
-}
-
-.comparison-tabs {
-    display: flex;
-    gap: 2px;
-    margin: 20px 0 0 0;
-    border-bottom: 1px solid #e2e8f0;
-}
-
-.comparison-tab {
-    background: #f1f5f9;
-    border: 1px solid #cbd5e1;
-    border-bottom: none;
-    padding: 12px 24px;
-    cursor: pointer;
-    border-radius: 8px 8px 0 0;
-    transition: all 0.2s;
-}
-
-.comparison-tab.active {
-    background: white;
-    font-weight: 600;
-    border-color: #e2e8f0;
-}
-
-.tab-content {
-    background: white;
-    border: 1px solid #e2e8f0;
-    border-top: none;
-    border-radius: 0 0 8px 8px;
-    padding: 20px;
-}
-
-.tab-pane {
-    display: none;
-}
-
-.tab-pane.active {
-    display: block;
-}
-
-.column-list {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    margin: 10px 0;
-}
-
-.column-tag {
-    padding: 4px 12px;
-    border-radius: 20px;
-    font-size: 0.8em;
-    font-weight: 500;
-}
-
-.column-tag.common {
-    background: #dcfce7;
-    color: #166534;
-}
-
-.column-tag.unique {
-    background: #fef3c7;
-    color: #92400e;
-}
-
-.schema-section {
-    margin: 20px 0;
-}
-
-.schema-section h4, .schema-section h5 {
-    color: #1e293b;
-    margin: 15px 0 10px 0;
-}
-
-.type-differences-table {
-    width: 100%;
-    border-collapse: collapse;
-    margin: 15px 0;
-}
-
-.type-differences-table th,
-.type-differences-table td {
-    padding: 12px;
-    text-align: left;
-    border-bottom: 1px solid #e2e8f0;
-}
-
-.type-differences-table th {
-    background: #f8fafc;
-    font-weight: 600;
-    color: #374151;
-}
-
-.type-differences-table code {
-    background: #f1f5f9;
-    padding: 2px 6px;
-    border-radius: 4px;
-    font-family: monospace;
-    font-size: 0.9em;
-}
-
-.statistics-table {
-    width: 100%;
-    border-collapse: collapse;
-    margin: 20px 0;
-}
-
-.statistics-table th,
-.statistics-table td {
-    padding: 12px;
-    text-align: left;
-    border-bottom: 1px solid #e2e8f0;
-}
-
-.statistics-table th {
-    background: #f8fafc;
-    font-weight: 600;
-    color: #374151;
-}
-
-.quality-comparison {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-    gap: 20px;
-    margin: 20px 0;
-}
-
-.quality-card {
-    background: white;
-    border: 1px solid #e2e8f0;
-    border-radius: 8px;
-    padding: 20px;
-}
-
-.quality-card h4 {
-    margin: 0 0 15px 0;
-    color: #1e293b;
-}
-
-.quality-metrics {
-    display: flex;
-    flex-direction: column;
-    gap: 15px;
-}
-
-.quality-metric {
-    display: flex;
-    flex-direction: column;
-    gap: 5px;
-}
-
-.metric-name {
-    font-weight: 500;
-    color: #374151;
-    font-size: 0.9em;
-}
-
-.metric-bar {
-    position: relative;
-    background: #f1f5f9;
-    height: 20px;
-    border-radius: 10px;
-    overflow: hidden;
-}
-
-.metric-fill {
-    height: 100%;
-    background: linear-gradient(90deg, #ef4444, #f59e0b, #22c55e);
-    transition: width 0.3s ease;
-}
-
-.metric-value {
-    position: absolute;
-    right: 8px;
-    top: 50%;
-    transform: translateY(-50%);
-    font-size: 0.8em;
-    font-weight: 600;
-    color: #1e293b;
-}
-
-.column-stats-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-    gap: 20px;
-    margin: 20px 0;
-}
-
-.column-stats-card {
-    background: white;
-    border: 1px solid #e2e8f0;
-    border-radius: 8px;
-    padding: 20px;
-}
-
-.column-stats-card h4 {
-    margin: 0 0 15px 0;
-    color: #1e293b;
-    font-size: 1.1em;
-}
-
-.stats-list {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-}
-
-.stat-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 8px 0;
-    border-bottom: 1px solid #f1f5f9;
-}
-
-.stat-name {
-    color: #64748b;
-    font-weight: 500;
-    font-size: 0.9em;
-}
-
-.stat-value {
-    color: #1e293b;
-    font-weight: 600;
-}
-
-.statistical-tests {
-    margin: 30px 0;
-    padding: 20px;
-    background: #f8fafc;
-    border-radius: 8px;
-    border: 1px solid #e2e8f0;
-}
-
-.statistical-tests h4 {
-    margin: 0 0 15px 0;
-    color: #1e293b;
-}
-
-.test-results {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 15px;
-}
-
-.test-result {
-    display: flex;
-    flex-direction: column;
-    gap: 5px;
-}
-
-.test-name {
-    color: #64748b;
-    font-weight: 500;
-    font-size: 0.9em;
-}
-
-.test-value {
-    color: #1e293b;
-    font-weight: 600;
-    font-size: 1.1em;
-}
-</style>
-`;
-
-document.head.insertAdjacentHTML('beforeend', comparisonCSS);

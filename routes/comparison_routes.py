@@ -358,26 +358,49 @@ def compare_datasets():
         current_app.logger.info(f"Final result before return. Statistical comparison length: {len(comparison_result['statistical_comparison'])}")
         current_app.logger.info(f"Statistical comparison content: {comparison_result['statistical_comparison']}")
         
+        # Ensure all data is JSON serializable
+        def make_json_safe(obj):
+            """Convert numpy types and other non-JSON serializable types to Python types"""
+            if isinstance(obj, dict):
+                return {k: make_json_safe(v) for k, v in obj.items()}
+            elif isinstance(obj, list):
+                return [make_json_safe(item) for item in obj]
+            elif isinstance(obj, (pd.Series, pd.DataFrame)):
+                return obj.to_dict() if hasattr(obj, 'to_dict') else str(obj)
+            elif hasattr(obj, 'item'):  # numpy scalars
+                return obj.item()
+            elif isinstance(obj, (int, float, str, bool, type(None))):
+                return obj
+            else:
+                return str(obj)
+        
+        # Make the comparison result JSON safe
+        safe_comparison_result = make_json_safe(comparison_result)
+        
         try:
             response_data = {
                 'success': True,
-                'comparison': comparison_result
+                'comparison': safe_comparison_result
             }
-            current_app.logger.info(f"About to return JSON response")
+            current_app.logger.info(f"About to return JSON response with {len(safe_comparison_result.get('statistical_comparison', []))} statistical comparisons")
             return jsonify(response_data)
         except Exception as json_error:
-            current_app.logger.error(f"JSON serialization error: {str(json_error)}")
+            current_app.logger.error(f"JSON serialization error even after making safe: {str(json_error)}")
             current_app.logger.error(f"JSON error type: {type(json_error).__name__}")
-            # Try to return a simpler response
+            # Return a minimal working response
             return jsonify({
                 'success': True,
                 'comparison': {
-                    'overview': comparison_result.get('overview', {}),
-                    'schema_comparison': comparison_result.get('schema_comparison', {}),
-                    'statistical_comparison': [],  # Empty for now due to serialization error
-                    'quality_comparison': comparison_result.get('quality_comparison', [])
+                    'overview': safe_comparison_result.get('overview', {'datasets': []}),
+                    'schema_comparison': safe_comparison_result.get('schema_comparison', {
+                        'common_columns': [],
+                        'unique_columns': {},
+                        'data_type_differences': []
+                    }),
+                    'statistical_comparison': safe_comparison_result.get('statistical_comparison', []),
+                    'quality_comparison': safe_comparison_result.get('quality_comparison', [])
                 },
-                'error': f"JSON serialization issue: {str(json_error)}"
+                'warning': f"Partial data returned due to serialization issue: {str(json_error)}"
             })
         
     except Exception as e:
