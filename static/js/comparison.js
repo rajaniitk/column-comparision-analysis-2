@@ -643,58 +643,29 @@ document.addEventListener('DOMContentLoaded', function() {
                                     </div>
                                 `;
                             }).join('')
-                        : 
-                            comparison.overview.datasets.map((dataset, index) => {
-                                // Calculate real quality metrics from dataset data
-                                const rowCount = dataset.rows || 0;
-                                const colCount = dataset.columns || 0;
-                                
-                                // Parse missing values percentage
-                                let missingPercent = 0;
-                                if (dataset.missing_values) {
-                                    const missingStr = dataset.missing_values.toString();
-                                    if (missingStr.includes('%')) {
-                                        missingPercent = parseFloat(missingStr.replace('%', ''));
-                                    } else {
-                                        missingPercent = parseFloat(missingStr);
-                                    }
-                                }
-                                
-                                // Calculate quality metrics
-                                const completeness = Math.max(0, Math.min(100, 100 - missingPercent));
-                                const consistency = Math.min(100, 75 + (rowCount > 1000 ? 20 : rowCount > 100 ? 15 : 10));
-                                const validity = Math.min(100, 80 + (colCount > 5 ? 15 : colCount > 2 ? 10 : 5));
-                                const uniqueness = Math.min(100, 60 + (rowCount > 500 ? 25 : rowCount > 100 ? 20 : 15));
-                                
-                                return `
-                                    <div style="background: white; padding: 20px; border: 2px solid #ff9800; border-radius: 8px;">
-                                        <h3 style="color: #e65100; margin: 0 0 15px 0;">${dataset.name}</h3>
-                                        <div style="margin: 10px 0;">
-                                            <p style="margin: 5px 0; display: flex; justify-content: space-between;">
-                                                <span>📊 Completeness:</span>
-                                                <strong style="color: ${completeness >= 90 ? '#4caf50' : completeness >= 70 ? '#ff9800' : '#f44336'};">${Math.round(completeness)}%</strong>
-                                            </p>
-                                            <p style="margin: 5px 0; display: flex; justify-content: space-between;">
-                                                <span>🔄 Consistency:</span>
-                                                <strong style="color: ${consistency >= 90 ? '#4caf50' : consistency >= 70 ? '#ff9800' : '#f44336'};">${Math.round(consistency)}%</strong>
-                                            </p>
-                                            <p style="margin: 5px 0; display: flex; justify-content: space-between;">
-                                                <span>✓ Validity:</span>
-                                                <strong style="color: ${validity >= 90 ? '#4caf50' : validity >= 70 ? '#ff9800' : '#f44336'};">${Math.round(validity)}%</strong>
-                                            </p>
-                                            <p style="margin: 5px 0; display: flex; justify-content: space-between;">
-                                                <span>🎯 Uniqueness:</span>
-                                                <strong style="color: ${uniqueness >= 90 ? '#4caf50' : uniqueness >= 70 ? '#ff9800' : '#f44336'};">${Math.round(uniqueness)}%</strong>
-                                            </p>
-                                            <div style="margin-top: 15px; padding: 10px; background: #e8f5e8; border-left: 4px solid #4caf50; border-radius: 4px;">
-                                                <p style="color: #2e7d32; margin: 0; font-size: 13px; font-weight: 500;">
-                                                    ✅ Quality metrics calculated from dataset characteristics: ${rowCount.toLocaleString()} rows, ${colCount} columns, ${missingPercent}% missing
-                                                </p>
-                                            </div>
+                        : `
+                            <div style="text-align: center; padding: 40px 20px; background: #fff3e0; border: 2px solid #ff9800; border-radius: 8px; margin: 20px 0;">
+                                <h3 style="color: #e65100; margin: 0 0 15px 0;">⚠️ Quality Analysis Not Available</h3>
+                                <p style="color: #f57c00; margin: 0 0 20px 0; font-size: 16px;">
+                                    Quality comparison data is not provided by the backend API for this comparison.
+                                </p>
+                                <div style="background: white; padding: 20px; border-radius: 8px; border: 2px solid #ff9800;">
+                                    <h4 style="color: #e65100; margin: 0 0 15px 0;">Available Dataset Information:</h4>
+                                    ${comparison.overview.datasets.map(dataset => `
+                                        <div style="margin: 15px 0; padding: 15px; background: #fff8e1; border-left: 4px solid #ff9800; border-radius: 4px;">
+                                            <h5 style="color: #e65100; margin: 0 0 10px 0;">${dataset.name}</h5>
+                                            <p style="margin: 5px 0; color: #f57c00;"><strong>Rows:</strong> ${dataset.rows.toLocaleString()}</p>
+                                            <p style="margin: 5px 0; color: #f57c00;"><strong>Columns:</strong> ${dataset.columns}</p>
+                                            <p style="margin: 5px 0; color: #f57c00;"><strong>Memory:</strong> ${dataset.memory_usage}</p>
+                                            <p style="margin: 5px 0; color: #f57c00;"><strong>Missing Values:</strong> ${dataset.missing_values}</p>
                                         </div>
-                                    </div>
-                                `;
-                            }).join('')
+                                    `).join('')}
+                                </div>
+                                <p style="color: #bf360c; margin: 20px 0 0 0; font-size: 14px; font-style: italic;">
+                                    💡 To see quality metrics, ensure your backend comparison service includes quality_comparison data
+                                </p>
+                            </div>
+                        `
                         }
                     </div>
                 </div>
