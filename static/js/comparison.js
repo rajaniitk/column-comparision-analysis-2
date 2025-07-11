@@ -444,12 +444,15 @@ document.addEventListener('DOMContentLoaded', function() {
         console.log('Setting innerHTML for comparison results');
         container.innerHTML = html;
         
-        // Show the container using the existing CSS system
-        container.style.display = 'block';
+        // Force the container to be visible with multiple approaches
+        container.style.cssText = 'display: block !important; visibility: visible !important; opacity: 1 !important; position: relative !important; height: auto !important;';
         container.classList.remove('hidden');
+        container.removeAttribute('hidden');
         
         console.log('Container display set to:', container.style.display);
         console.log('Container computed display:', window.getComputedStyle(container).display);
+        console.log('Container computed visibility:', window.getComputedStyle(container).visibility);
+        console.log('Container computed opacity:', window.getComputedStyle(container).opacity);
         
         // Force a repaint to ensure visibility
         container.offsetHeight; // This forces a reflow
@@ -477,10 +480,56 @@ document.addEventListener('DOMContentLoaded', function() {
             const overviewTab = document.getElementById('overview');
             if (overviewTab) {
                 overviewTab.classList.add('active');
+                // Force visibility on the overview tab
+                overviewTab.style.cssText = 'display: block !important; visibility: visible !important; opacity: 1 !important; height: auto !important;';
                 console.log('Overview tab activated by default');
+                console.log('Overview tab computed display:', window.getComputedStyle(overviewTab).display);
             }
             
-            console.log('Dataset comparison display completed');
+            // Also ensure all tab content has proper visibility
+            const allTabContents = container.querySelectorAll('.comp-tab-content');
+            allTabContents.forEach(tab => {
+                if (tab.classList.contains('active')) {
+                    tab.style.cssText = 'display: block !important; visibility: visible !important; opacity: 1 !important; height: auto !important;';
+                }
+            });
+            
+            // Add emergency CSS to override any hiding rules
+            const emergencyStyle = document.createElement('style');
+            emergencyStyle.innerHTML = `
+                #comparison-results {
+                    display: block !important;
+                    visibility: visible !important;
+                    opacity: 1 !important;
+                    position: relative !important;
+                    z-index: 1000 !important;
+                    background: white !important;
+                    min-height: 100px !important;
+                    border: 2px solid red !important;
+                    padding: 20px !important;
+                }
+                #comparison-results .comp-tab-content.active {
+                    display: block !important;
+                    visibility: visible !important;
+                    opacity: 1 !important;
+                    height: auto !important;
+                    min-height: 50px !important;
+                    background: yellow !important;
+                    border: 1px solid green !important;
+                }
+            `;
+            document.head.appendChild(emergencyStyle);
+            
+            console.log('Dataset comparison display completed with emergency styles');
+            console.log('Container bounding rect:', container.getBoundingClientRect());
+            console.log('Container scroll position:', container.scrollTop, container.scrollLeft);
+            
+            // Scroll to the results container to make sure it's in view
+            container.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            
+            // Log the DOM structure for debugging
+            console.log('Container children count:', container.children.length);
+            console.log('Container HTML preview:', container.innerHTML.substring(0, 200) + '...');
         }, 100);
     }
     
