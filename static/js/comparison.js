@@ -1240,9 +1240,14 @@ document.addEventListener('DOMContentLoaded', function() {
         
         if (selectedTab) {
             selectedTab.classList.add('active');
+            // Force the tab content to be visible with emergency styling
+            selectedTab.style.cssText = 'display: block !important; visibility: visible !important; opacity: 1 !important; height: auto !important; min-height: 100px !important; background: yellow !important; border: 2px solid green !important; padding: 20px !important; position: relative !important; z-index: 1001 !important;';
+            
             console.log('Tab activated:', tabName);
             console.log('Tab classes after activation:', selectedTab.className);
             console.log('Tab computed display:', window.getComputedStyle(selectedTab).display);
+            console.log('Tab innerHTML length:', selectedTab.innerHTML.length);
+            console.log('Tab innerHTML preview:', selectedTab.innerHTML.substring(0, 300) + '...');
             
             // Force a repaint
             selectedTab.offsetHeight;
