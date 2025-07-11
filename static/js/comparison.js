@@ -1240,14 +1240,31 @@ document.addEventListener('DOMContentLoaded', function() {
         
         if (selectedTab) {
             selectedTab.classList.add('active');
-            // Force the tab content to be visible with emergency styling
-            selectedTab.style.cssText = 'display: block !important; visibility: visible !important; opacity: 1 !important; height: auto !important; min-height: 100px !important; background: yellow !important; border: 2px solid green !important; padding: 20px !important; position: relative !important; z-index: 1001 !important;';
+            // Force the tab content to be visible with emergency styling - make it MUCH larger
+            selectedTab.style.cssText = 'display: block !important; visibility: visible !important; opacity: 1 !important; height: 400px !important; min-height: 400px !important; background: yellow !important; border: 4px solid green !important; padding: 30px !important; position: relative !important; z-index: 1001 !important; font-size: 16px !important; line-height: 1.5 !important; overflow: auto !important;';
             
             console.log('Tab activated:', tabName);
             console.log('Tab classes after activation:', selectedTab.className);
             console.log('Tab computed display:', window.getComputedStyle(selectedTab).display);
             console.log('Tab innerHTML length:', selectedTab.innerHTML.length);
             console.log('Tab innerHTML preview:', selectedTab.innerHTML.substring(0, 300) + '...');
+            
+            // If the tab appears to be empty or very small, add debug content
+            if (selectedTab.innerHTML.length < 50) {
+                selectedTab.innerHTML = `
+                    <div style="color: red; font-size: 18px; font-weight: bold; padding: 20px;">
+                        <h3>DEBUG: Tab "${tabName}" appears to be empty!</h3>
+                        <p>Original content length: ${selectedTab.innerHTML.length}</p>
+                        <p>This is emergency debug content to verify tab switching works.</p>
+                    </div>
+                `;
+            } else {
+                // Force all child elements to be visible
+                const allChildren = selectedTab.querySelectorAll('*');
+                allChildren.forEach(child => {
+                    child.style.cssText += ' display: block !important; visibility: visible !important; opacity: 1 !important; color: black !important; font-size: 14px !important;';
+                });
+            }
             
             // Force a repaint
             selectedTab.offsetHeight;
