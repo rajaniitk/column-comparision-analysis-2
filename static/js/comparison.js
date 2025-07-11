@@ -12,8 +12,11 @@ document.addEventListener('DOMContentLoaded', function() {
     const loadingModal = document.getElementById('comparison-loading-modal');
     
     // Initialize
+    console.log('Initializing comparison functionality...');
+    injectComparisonCSS();  // Inject CSS first
     loadDatasets();
     setupEventListeners();
+    console.log('Comparison initialization complete');
     
     function setupEventListeners() {
         // Dataset comparison event listeners
@@ -432,11 +435,28 @@ document.addEventListener('DOMContentLoaded', function() {
                     ${generateQualityHTML(comparison.quality_comparison)}
                 </div>
             </div>
+            
+            <div class="comparison-actions" style="margin-top: 30px; padding: 20px; text-align: center;">
+                <button id="export-comparison" class="btn btn-secondary" style="margin: 0 10px;">Export Results</button>
+                <button id="create-report" class="btn btn-secondary" style="margin: 0 10px;">Generate Report</button>
+            </div>
         `;
         
         console.log('Setting innerHTML for comparison results');
         container.innerHTML = html;
+        
+        // Ensure the container is visible - use multiple approaches
         container.style.display = 'block';
+        container.style.visibility = 'visible';
+        container.style.opacity = '1';
+        container.classList.remove('hidden');
+        
+        // Force display with important
+        container.setAttribute('style', 'display: block !important; visibility: visible !important; opacity: 1 !important;');
+        
+        console.log('Container display set to:', container.style.display);
+        console.log('Container visibility set to:', container.style.visibility);
+        console.log('Container computed display:', window.getComputedStyle(container).display);
         
         // Check if the statistics tab content was created
         const statsTab = document.getElementById('statistics');
