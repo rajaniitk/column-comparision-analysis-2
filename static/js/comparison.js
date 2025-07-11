@@ -1259,11 +1259,20 @@ document.addEventListener('DOMContentLoaded', function() {
                     </div>
                 `;
             } else {
-                // Force all child elements to be visible
+                // Force all child elements to be visible with EXTREME styling
                 const allChildren = selectedTab.querySelectorAll('*');
-                allChildren.forEach(child => {
-                    child.style.cssText += ' display: block !important; visibility: visible !important; opacity: 1 !important; color: black !important; font-size: 14px !important;';
+                allChildren.forEach((child, index) => {
+                    child.style.cssText += ' display: block !important; visibility: visible !important; opacity: 1 !important; color: red !important; font-size: 18px !important; font-weight: bold !important; background: white !important; border: 1px solid blue !important; margin: 5px !important; padding: 10px !important; position: relative !important; z-index: 9999 !important;';
                 });
+                
+                // Also add a large debug text at the beginning
+                selectedTab.insertAdjacentHTML('afterbegin', `
+                    <div style="background: red; color: white; font-size: 24px; font-weight: bold; padding: 20px; border: 3px solid black; margin: 10px; text-align: center; z-index: 10000; position: relative;">
+                        🚨 DEBUG: TAB "${tabName.toUpperCase()}" CONTENT BELOW 🚨<br>
+                        Content Length: ${selectedTab.innerHTML.length} characters<br>
+                        If you can see this but not the content below, there's a CSS issue!
+                    </div>
+                `);
             }
             
             // Force a repaint
