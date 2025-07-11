@@ -1,0 +1,1857 @@
+document.addEventListener('DOMContentLoaded', function() {
+    // Global variables
+    let selectedDatasets = [];
+    let selectedColumns = [];
+    let comparisonData = {};
+    
+    // DOM Elements
+    const dataset1Select = document.getElementById('dataset1-select');
+    const dataset2Select = document.getElementById('dataset2-select');
+    const colDatasetSelect = document.getElementById('col-dataset-select');
+    const comparisonResults = document.getElementById('comparison-results');
+    const loadingModal = document.getElementById('comparison-loading-modal');
+    
+    // Initialize
+    loadDatasets();
+    setupEventListeners();
+    
+    function setupEventListeners() {
+        // Dataset comparison event listeners
+        const compareBtn = document.getElementById('compare-datasets');
+        if (compareBtn) {
+            compareBtn.addEventListener('click', compareDatasets);
+        }
+        
+        const compareColBtn = document.getElementById('compare-columns');
+        if (compareColBtn) {
+            compareColBtn.addEventListener('click', compareColumns);
+        }
+        
+        const compareSegBtn = document.getElementById('compare-segments');
+        if (compareSegBtn) {
+            compareSegBtn.addEventListener('click', compareSegments);
+        }
+        
+        const exportBtn = document.getElementById('export-comparison');
+        if (exportBtn) {
+            exportBtn.addEventListener('click', exportComparison);
+        }
+        
+        // Type switching buttons
+        const typeButtons = document.querySelectorAll('.type-btn');
+        typeButtons.forEach(button => {
+            button.addEventListener('click', (e) => {
+                switchComparisonType(e.target.getAttribute('data-type'));
+            });
+        });
+        
+        // Tab switching
+        const tabButtons = document.querySelectorAll('.comp-tab-button');
+        tabButtons.forEach(button => {
+            button.addEventListener('click', (e) => {
+                switchTab(e.target.getAttribute('data-tab'));
+            });
+        });
+        
+        // Dataset selectors
+        if (dataset1Select) {
+            dataset1Select.addEventListener('change', updateComparisonOptions);
+        }
+        if (dataset2Select) {
+            dataset2Select.addEventListener('change', updateComparisonOptions);
+        }
+        if (colDatasetSelect) {
+            colDatasetSelect.addEventListener('change', updateColumnOptions);
+        }
+        
+        // Segment comparison selectors
+        const segDatasetSelect = document.getElementById('seg-dataset-select');
+        if (segDatasetSelect) {
+            segDatasetSelect.addEventListener('change', updateSegmentOptions);
+        }
+    }
+    
+    async function loadDatasets() {
+        try {
+            // Fetch datasets from the comparison API endpoint
+            const response = await fetch('/api/comparison/datasets');
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            const data = await response.json();
+            
+            if (data.success && data.datasets) {
+                // Transform datasets to include column names if not already present
+                const datasetsWithColumns = await Promise.all(data.datasets.map(async (dataset) => {
+                    try {
+                        // Use column_names directly if available, otherwise try to fetch
+                        if (dataset.column_names && Array.isArray(dataset.column_names)) {
+                            return {
+                                ...dataset,
+                                columns_list: dataset.column_names
+                            };
+                        }
+                        
+                        // Try alternative API endpoint for columns
+                        const colResponse = await fetch(`/api/data/columns/${dataset.id}`);
+                        if (colResponse.ok) {
+                            const colData = await colResponse.json();
+                            if (colData.success && colData.columns) {
+                                return {
+                                    ...dataset,
+                                    columns_list: colData.columns.map(col => col.name)
+                                };
+                            }
+                        }
+                        
+                        // Fallback to existing column_names or empty array
+                        return {
+                            ...dataset,
+                            columns_list: dataset.column_names || []
+                        };
+                    } catch (err) {
+                        console.warn(`Failed to load columns for dataset ${dataset.id}:`, err);
+                        return {
+                            ...dataset,
+                            columns_list: dataset.column_names || []
+                        };
+                    }
+                }));
+                
+                storeDatasets(datasetsWithColumns);
+                populateDatasetSelectors(datasetsWithColumns);
+            } else {
+                console.log('No datasets available or API returned error:', data.error);
+                // Show fallback message
+                showError('No datasets available. Please upload some data first.');
+                storeDatasets([]);
+                populateDatasetSelectors([]);
+            }
+            
+        } catch (error) {
+            console.error('Error loading datasets:', error);
+            showError('Failed to load datasets: ' + error.message);
+            // Try to load from alternative endpoint as fallback
+            try {
+                const fallbackResponse = await fetch('/api/data/datasets');
+                if (fallbackResponse.ok) {
+                    const fallbackData = await fallbackResponse.json();
+                    if (fallbackData.success && fallbackData.datasets) {
+                        storeDatasets(fallbackData.datasets);
+                        populateDatasetSelectors(fallbackData.datasets);
+                        return;
+                    }
+                }
+            } catch (fallbackError) {
+                console.error('Fallback dataset loading also failed:', fallbackError);
+            }
+            
+            // Final fallback - empty state
+            storeDatasets([]);
+            populateDatasetSelectors([]);
+        }
+    }
+    
+    function populateDatasetSelectors(datasets) {
+        // Populate dataset selectors for comparison
+        const selectors = [dataset1Select, dataset2Select, colDatasetSelect];
+        
+        selectors.forEach(selector => {
+            if (selector) {
+                selector.innerHTML = '<option value="">Choose dataset...</option>';
+                datasets.forEach(dataset => {
+                    const option = document.createElement('option');
+                    option.value = dataset.id;
+                    option.textContent = `${dataset.name} (${dataset.rows} rows, ${dataset.columns} cols)`;
+                    selector.appendChild(option);
+                });
+            }
+        });
+        
+        // Also populate segment dataset selector if it exists
+        const segDatasetSelect = document.getElementById('seg-dataset-select');
+        if (segDatasetSelect) {
+            segDatasetSelect.innerHTML = '<option value="">Choose dataset...</option>';
+            datasets.forEach(dataset => {
+                const option = document.createElement('option');
+                option.value = dataset.id;
+                option.textContent = `${dataset.name} (${dataset.rows} rows, ${dataset.columns} cols)`;
+                segDatasetSelect.appendChild(option);
+            });
+        }
+    }
+    
+
+    
+    function updateColumnOptions() {
+        const selectedDatasetId = colDatasetSelect.value;
+        const column1Select = document.getElementById('column1-select');
+        const column2Select = document.getElementById('column2-select');
+        
+        // Clear existing options
+        if (column1Select) column1Select.innerHTML = '<option value="">Choose first column...</option>';
+        if (column2Select) column2Select.innerHTML = '<option value="">Choose second column...</option>';
+        
+        if (selectedDatasetId) {
+            // First try to get columns from stored datasets
+            const datasets = getStoredDatasets();
+            const selectedDataset = datasets.find(d => d.id.toString() === selectedDatasetId);
+            
+            if (selectedDataset && selectedDataset.columns_list && selectedDataset.columns_list.length > 0) {
+                // Use stored column data
+                selectedDataset.columns_list.forEach(columnName => {
+                    if (column1Select) {
+                        const option1 = document.createElement('option');
+                        option1.value = columnName;
+                        option1.textContent = columnName;
+                        column1Select.appendChild(option1);
+                    }
+                    if (column2Select) {
+                        const option2 = document.createElement('option');
+                        option2.value = columnName;
+                        option2.textContent = columnName;
+                        column2Select.appendChild(option2);
+                    }
+                });
+            } else {
+                // Fetch columns from API as fallback
+                fetch(`/api/data/columns/${selectedDatasetId}`)
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error(`HTTP error! status: ${response.status}`);
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        if (data.success && data.columns) {
+                            data.columns.forEach(column => {
+                                if (column1Select) {
+                                    const option1 = document.createElement('option');
+                                    option1.value = column.name;
+                                    option1.textContent = `${column.name} (${column.type})`;
+                                    column1Select.appendChild(option1);
+                                }
+                                if (column2Select) {
+                                    const option2 = document.createElement('option');
+                                    option2.value = column.name;
+                                    option2.textContent = `${column.name} (${column.type})`;
+                                    column2Select.appendChild(option2);
+                                }
+                            });
+                        } else {
+                            showError('Failed to load columns: ' + (data.error || 'Unknown error'));
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error loading columns:', error);
+                        showError('Failed to load columns: ' + error.message);
+                    });
+            }
+        }
+    }
+    
+    function updateComparisonOptions() {
+        // Enable/disable comparison button based on selection
+        const compareBtn = document.getElementById('compare-datasets');
+        if (compareBtn) {
+            compareBtn.disabled = !dataset1Select.value || !dataset2Select.value;
+        }
+    }
+    
+    function switchComparisonType(type) {
+        // Hide all panels
+        const panels = document.querySelectorAll('.comparison-panel');
+        panels.forEach(panel => panel.classList.remove('active'));
+        
+        // Show selected panel
+        const selectedPanel = document.getElementById(`${type}-comparison-panel`);
+        if (selectedPanel) {
+            selectedPanel.classList.add('active');
+        }
+        
+        // Update button states
+        const buttons = document.querySelectorAll('.type-btn');
+        buttons.forEach(btn => btn.classList.remove('active'));
+        
+        const activeButton = document.querySelector(`[data-type="${type}"]`);
+        if (activeButton) {
+            activeButton.classList.add('active');
+        }
+    }
+    
+    function getStoredDatasets() {
+        // Simple function to store datasets temporarily
+        if (!window.cachedDatasets) {
+            window.cachedDatasets = [];
+        }
+        return window.cachedDatasets;
+    }
+    
+    function storeDatasets(datasets) {
+        window.cachedDatasets = datasets;
+    }
+    
+    async function compareDatasets() {
+        const dataset1Id = dataset1Select.value;
+        const dataset2Id = dataset2Select.value;
+        
+        if (!dataset1Id || !dataset2Id) {
+            showError('Please select both datasets to compare');
+            return;
+        }
+        
+        showLoading();
+        
+        try {
+            const comparison = await performDatasetComparison([dataset1Id, dataset2Id]);
+            displayDatasetComparison(comparison);
+            
+        } catch (error) {
+            console.error('Error comparing datasets:', error);
+            showError('Failed to compare datasets');
+        } finally {
+            hideLoading();
+        }
+    }
+    
+    async function performDatasetComparison(datasetIds) {
+        try {
+            console.log('Starting dataset comparison with IDs:', datasetIds);
+            
+            const response = await fetch('/api/comparison/datasets', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ dataset_ids: datasetIds })
+            });
+
+            console.log('Dataset comparison response status:', response.status);
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error('Dataset comparison failed with error:', errorText);
+                throw new Error(`HTTP ${response.status}: ${errorText}`);
+            }
+
+            const data = await response.json();
+            console.log('Dataset comparison response data:', data);
+            
+            if (data.success) {
+                console.log('Dataset comparison successful, returning data:', data.comparison);
+                console.log('Statistical comparison array in response:', data.comparison.statistical_comparison);
+                console.log('Statistical comparison length:', data.comparison.statistical_comparison ? data.comparison.statistical_comparison.length : 'undefined');
+                return data.comparison;
+            } else {
+                console.error('Dataset comparison returned unsuccessful:', data.error);
+                throw new Error(data.error || 'Failed to compare datasets');
+            }
+        } catch (error) {
+            console.error('Error in performDatasetComparison:', error);
+            
+            // Return error structure instead of dummy data
+            return {
+                overview: {
+                    datasets: []
+                },
+                schema_comparison: {
+                    common_columns: [],
+                    unique_columns: {},
+                    data_type_differences: []
+                },
+                statistical_comparison: [],
+                quality_comparison: [],
+                error: `Dataset comparison failed: ${error.message}. Please check if the datasets are properly uploaded and accessible.`
+            };
+        }
+    }
+    
+    // These functions were removed - using real data from backend instead of dummy data
+    
+    function displayDatasetComparison(comparison) {
+        console.log('Displaying dataset comparison:', comparison);
+        console.log('Statistical comparison in display function:', comparison.statistical_comparison);
+        console.log('Statistical comparison length in display:', comparison.statistical_comparison ? comparison.statistical_comparison.length : 'undefined');
+        
+        const container = document.getElementById('comparison-results');
+        
+        if (!container) {
+            console.error('comparison-results container not found');
+            return;
+        }
+        
+        // Check if there's an error or no data
+        if (comparison.error || !comparison.overview || !comparison.overview.datasets || comparison.overview.datasets.length === 0) {
+            console.log('Displaying error in dataset comparison:', comparison.error);
+            container.innerHTML = `
+                <div class="comparison-error">
+                    <h3>Dataset Comparison Error</h3>
+                    <p>${comparison.error || 'No datasets found or unable to load dataset data.'}</p>
+                    <div class="error-suggestions">
+                        <h4>Possible solutions:</h4>
+                        <ul>
+                            <li>Ensure both datasets are properly uploaded and accessible</li>
+                            <li>Check that the datasets contain valid data</li>
+                            <li>Try refreshing the page and selecting the datasets again</li>
+                            <li>Verify that the dataset files are not corrupted</li>
+                        </ul>
+                    </div>
+                </div>
+            `;
+            container.style.display = 'block';
+            return;
+        }
+        
+        console.log('Generating HTML for comparison results');
+        
+        let html = `
+            <div class="comparison-header">
+                <h3>Dataset Comparison Results</h3>
+                <p>Comparing ${comparison.overview.datasets.length} datasets</p>
+            </div>
+            
+            <div class="comparison-tabs">
+                <button class="comp-tab-button active" data-tab="overview">Overview</button>
+                <button class="comp-tab-button" data-tab="schema">Schema</button>
+                <button class="comp-tab-button" data-tab="statistics">Statistics</button>
+                <button class="comp-tab-button" data-tab="quality">Quality</button>
+            </div>
+            
+            <div class="tab-content">
+                <div id="overview" class="comp-tab-content active">
+                    ${generateOverviewHTML(comparison.overview)}
+                </div>
+                <div id="schema" class="comp-tab-content">
+                    ${generateSchemaHTML(comparison.schema_comparison)}
+                </div>
+                <div id="statistics" class="comp-tab-content">
+                    ${generateStatisticsHTML(comparison.statistical_comparison)}
+                </div>
+                <div id="quality" class="comp-tab-content">
+                    ${generateQualityHTML(comparison.quality_comparison)}
+                </div>
+            </div>
+        `;
+        
+        console.log('Setting innerHTML for comparison results');
+        container.innerHTML = html;
+        container.style.display = 'block';
+        
+        // Check if the statistics tab content was created
+        const statsTab = document.getElementById('statistics');
+        console.log('Statistics tab element:', statsTab);
+        console.log('Statistics tab innerHTML length:', statsTab ? statsTab.innerHTML.length : 'not found');
+        
+        // Reattach tab event listeners
+        const tabButtons = container.querySelectorAll('.comp-tab-button');
+        console.log('Found tab buttons:', tabButtons.length);
+        tabButtons.forEach((button, index) => {
+            const tabName = button.getAttribute('data-tab');
+            console.log(`Tab button ${index}: ${button.textContent} -> ${tabName}`);
+            button.addEventListener('click', (e) => {
+                console.log('Tab button clicked:', e.target.textContent, 'data-tab:', e.target.getAttribute('data-tab'));
+                switchTab(e.target.getAttribute('data-tab'));
+            });
+        });
+        
+        console.log('Dataset comparison display completed');
+    }
+    
+    function generateOverviewHTML(overview) {
+        let html = '<div class="overview-grid">';
+        
+        overview.datasets.forEach(dataset => {
+            html += `
+                <div class="dataset-overview-card">
+                    <h4>${dataset.name}</h4>
+                    <div class="overview-stats">
+                        <div class="stat">
+                            <span class="label">Rows:</span>
+                            <span class="value">${dataset.rows.toLocaleString()}</span>
+                        </div>
+                        <div class="stat">
+                            <span class="label">Columns:</span>
+                            <span class="value">${dataset.columns}</span>
+                        </div>
+                        <div class="stat">
+                            <span class="label">Memory:</span>
+                            <span class="value">${dataset.memory_usage}</span>
+                        </div>
+                        <div class="stat">
+                            <span class="label">Missing:</span>
+                            <span class="value">${dataset.missing_values}</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+        
+        html += '</div>';
+        return html;
+    }
+    
+    function generateSchemaHTML(schema) {
+        return `
+            <div class="schema-comparison">
+                <div class="schema-section">
+                    <h4>Common Columns</h4>
+                    <div class="column-list">
+                        ${schema.common_columns.map(col => `<span class="column-tag common">${col}</span>`).join('')}
+                    </div>
+                </div>
+                
+                <div class="schema-section">
+                    <h4>Unique Columns</h4>
+                    ${Object.entries(schema.unique_columns).map(([dataset, columns]) => `
+                        <div class="unique-columns">
+                            <h5>${dataset}</h5>
+                            <div class="column-list">
+                                ${columns.map(col => `<span class="column-tag unique">${col}</span>`).join('')}
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+                
+                <div class="schema-section">
+                    <h4>Data Type Differences</h4>
+                    <table class="type-differences-table">
+                        <thead>
+                            <tr>
+                                <th>Column</th>
+                                <th>Dataset 1</th>
+                                <th>Dataset 2</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${schema.data_type_differences.map(diff => `
+                                <tr>
+                                    <td>${diff.column}</td>
+                                    <td><code>${diff.dataset1}</code></td>
+                                    <td><code>${diff.dataset2}</code></td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        `;
+    }
+    
+    function generateStatisticsHTML(statistics) {
+        console.log('generateStatisticsHTML called with:', statistics);
+        console.log('Statistics array length:', statistics ? statistics.length : 'undefined');
+        
+        if (!statistics || statistics.length === 0) {
+            console.log('No statistics data - showing message');
+            return `
+                <div class="no-stats-message">
+                    <h4>No Statistical Comparison Available</h4>
+                    <p>This can happen when:</p>
+                    <ul>
+                        <li>Datasets have no columns in common</li>
+                        <li>Datasets contain only categorical/text data</li>
+                        <li>There was an error loading the dataset files</li>
+                    </ul>
+                    <p>Try checking the Overview, Schema, and Quality tabs for other comparison insights.</p>
+                </div>
+            `;
+        }
+        
+        console.log('Generating statistics HTML for', statistics.length, 'items');
+        
+        return `
+            <div class="statistics-comparison">
+                ${statistics.map(stat => {
+                    const stats1 = stat.dataset1.statistics;
+                    const stats2 = stat.dataset2.statistics;
+                    
+                    // Check if this is numerical statistics or basic statistics
+                    const isNumerical = stats1.hasOwnProperty('mean') && stats2.hasOwnProperty('mean');
+                    
+                    if (isNumerical) {
+                        // Numerical statistics table
+                                        return `
+                    <div class="statistic-section">
+                        <h5>Column: ${stat.column} <span class="column-type">(${stat.comparison_type === 'different_columns' ? 'Cross-Dataset Numerical' : 'Numerical'})</span></h5>
+                                <table class="statistics-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Metric</th>
+                                            <th>${stat.dataset1.name}</th>
+                                            <th>${stat.dataset2.name}</th>
+                                            <th>Difference</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                            <td><strong>Count</strong></td>
+                                            <td>${stats1.count || 'N/A'}</td>
+                                            <td>${stats2.count || 'N/A'}</td>
+                                            <td>${stats1.count && stats2.count ? Math.abs(stats1.count - stats2.count) : 'N/A'}</td>
+                                        </tr>
+                                        <tr>
+                                            <td><strong>Mean</strong></td>
+                                            <td>${typeof stats1.mean === 'number' ? stats1.mean.toFixed(3) : 'N/A'}</td>
+                                            <td>${typeof stats2.mean === 'number' ? stats2.mean.toFixed(3) : 'N/A'}</td>
+                                            <td>${typeof stats1.mean === 'number' && typeof stats2.mean === 'number' ? Math.abs(stats1.mean - stats2.mean).toFixed(3) : 'N/A'}</td>
+                                        </tr>
+                                        <tr>
+                                            <td><strong>Median</strong></td>
+                                            <td>${typeof stats1.median === 'number' ? stats1.median.toFixed(3) : 'N/A'}</td>
+                                            <td>${typeof stats2.median === 'number' ? stats2.median.toFixed(3) : 'N/A'}</td>
+                                            <td>${typeof stats1.median === 'number' && typeof stats2.median === 'number' ? Math.abs(stats1.median - stats2.median).toFixed(3) : 'N/A'}</td>
+                                        </tr>
+                                        <tr>
+                                            <td><strong>Std Dev</strong></td>
+                                            <td>${typeof stats1.std === 'number' ? stats1.std.toFixed(3) : 'N/A'}</td>
+                                            <td>${typeof stats2.std === 'number' ? stats2.std.toFixed(3) : 'N/A'}</td>
+                                            <td>${typeof stats1.std === 'number' && typeof stats2.std === 'number' ? Math.abs(stats1.std - stats2.std).toFixed(3) : 'N/A'}</td>
+                                        </tr>
+                                        <tr>
+                                            <td><strong>Min</strong></td>
+                                            <td>${typeof stats1.min === 'number' ? stats1.min.toFixed(3) : 'N/A'}</td>
+                                            <td>${typeof stats2.min === 'number' ? stats2.min.toFixed(3) : 'N/A'}</td>
+                                            <td>${typeof stats1.min === 'number' && typeof stats2.min === 'number' ? Math.abs(stats1.min - stats2.min).toFixed(3) : 'N/A'}</td>
+                                        </tr>
+                                        <tr>
+                                            <td><strong>Max</strong></td>
+                                            <td>${typeof stats1.max === 'number' ? stats1.max.toFixed(3) : 'N/A'}</td>
+                                            <td>${typeof stats2.max === 'number' ? stats2.max.toFixed(3) : 'N/A'}</td>
+                                            <td>${typeof stats1.max === 'number' && typeof stats2.max === 'number' ? Math.abs(stats1.max - stats2.max).toFixed(3) : 'N/A'}</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        `;
+                    } else {
+                        // Basic statistics table for non-numerical columns
+                        const sectionType = stat.comparison_type === 'overview' ? 'Dataset Overview' : 
+                                          stat.comparison_type === 'basic_comparison' ? 'Basic Comparison' : 
+                                          (stats1.data_type || 'Mixed');
+                        
+                        return `
+                            <div class="statistic-section">
+                                <h5>Column: ${stat.column} <span class="column-type">(${sectionType})</span></h5>
+                                <table class="statistics-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Metric</th>
+                                            <th>${stat.dataset1.name}</th>
+                                            <th>${stat.dataset2.name}</th>
+                                            <th>Difference</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${stat.comparison_type === 'overview' ? `
+                                            <tr>
+                                                <td><strong>Total Columns</strong></td>
+                                                <td>${stats1.total_columns || 'N/A'}</td>
+                                                <td>${stats2.total_columns || 'N/A'}</td>
+                                                <td>${stats1.total_columns && stats2.total_columns ? Math.abs(stats1.total_columns - stats2.total_columns) : 'N/A'}</td>
+                                            </tr>
+                                            <tr>
+                                                <td><strong>Numerical Columns</strong></td>
+                                                <td>${stats1.numerical_columns || 'N/A'}</td>
+                                                <td>${stats2.numerical_columns || 'N/A'}</td>
+                                                <td>${stats1.numerical_columns && stats2.numerical_columns ? Math.abs(stats1.numerical_columns - stats2.numerical_columns) : 'N/A'}</td>
+                                            </tr>
+                                            <tr>
+                                                <td><strong>Categorical Columns</strong></td>
+                                                <td>${stats1.categorical_columns || 'N/A'}</td>
+                                                <td>${stats2.categorical_columns || 'N/A'}</td>
+                                                <td>${stats1.categorical_columns && stats2.categorical_columns ? Math.abs(stats1.categorical_columns - stats2.categorical_columns) : 'N/A'}</td>
+                                            </tr>
+                                            <tr>
+                                                <td><strong>Total Rows</strong></td>
+                                                <td>${stats1.total_rows || 'N/A'}</td>
+                                                <td>${stats2.total_rows || 'N/A'}</td>
+                                                <td>${stats1.total_rows && stats2.total_rows ? Math.abs(stats1.total_rows - stats2.total_rows) : 'N/A'}</td>
+                                            </tr>
+                                            <tr>
+                                                <td><strong>Memory Usage</strong></td>
+                                                <td>${stats1.memory_usage || 'N/A'}</td>
+                                                <td>${stats2.memory_usage || 'N/A'}</td>
+                                                <td>-</td>
+                                            </tr>
+                                        ` : `
+                                            <tr>
+                                                <td><strong>Data Type</strong></td>
+                                                <td><code>${stats1.data_type || 'Unknown'}</code></td>
+                                                <td><code>${stats2.data_type || 'Unknown'}</code></td>
+                                                <td>${(stats1.data_type === stats2.data_type) ? '✅ Match' : '❌ Different'}</td>
+                                            </tr>
+                                            <tr>
+                                                <td><strong>Total Count</strong></td>
+                                                <td>${stats1.total_count || 'N/A'}</td>
+                                                <td>${stats2.total_count || 'N/A'}</td>
+                                                <td>${stats1.total_count && stats2.total_count ? Math.abs(stats1.total_count - stats2.total_count) : 'N/A'}</td>
+                                            </tr>
+                                            <tr>
+                                                <td><strong>Unique Values</strong></td>
+                                                <td>${stats1.unique_values || 'N/A'}</td>
+                                                <td>${stats2.unique_values || 'N/A'}</td>
+                                                <td>${stats1.unique_values && stats2.unique_values ? Math.abs(stats1.unique_values - stats2.unique_values) : 'N/A'}</td>
+                                            </tr>
+                                            <tr>
+                                                <td><strong>Null Count</strong></td>
+                                                <td>${stats1.null_count || 'N/A'}</td>
+                                                <td>${stats2.null_count || 'N/A'}</td>
+                                                <td>${stats1.null_count && stats2.null_count ? Math.abs(stats1.null_count - stats2.null_count) : 'N/A'}</td>
+                                            </tr>
+                                            <tr>
+                                                <td><strong>Completeness</strong></td>
+                                                <td>${stats1.total_count && stats1.null_count ? ((stats1.total_count - stats1.null_count) / stats1.total_count * 100).toFixed(1) + '%' : 'N/A'}</td>
+                                                <td>${stats2.total_count && stats2.null_count ? ((stats2.total_count - stats2.null_count) / stats2.total_count * 100).toFixed(1) + '%' : 'N/A'}</td>
+                                                <td>-</td>
+                                            </tr>
+                                        `}
+                                    </tbody>
+                                </table>
+                            </div>
+                        `;
+                    }
+                }).join('')}
+            </div>
+        `;
+    }
+    
+    function generateQualityHTML(quality) {
+        return `
+            <div class="quality-comparison">
+                ${quality.map(q => `
+                    <div class="quality-card">
+                        <h4>${q.dataset_name}</h4>
+                        <div class="quality-metrics">
+                            ${Object.entries(q.quality_metrics).map(([metric, value]) => `
+                                <div class="quality-metric">
+                                    <span class="metric-name">${metric.charAt(0).toUpperCase() + metric.slice(1)}</span>
+                                    <div class="metric-bar">
+                                        <div class="metric-fill" style="width: ${value}%"></div>
+                                        <span class="metric-value">${value}%</span>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+        `;
+    }
+    
+    async function compareColumns() {
+        const datasetId = colDatasetSelect.value;
+        const column1 = document.getElementById('column1-select').value;
+        const column2 = document.getElementById('column2-select').value;
+        
+        if (!datasetId || !column1 || !column2) {
+            showError('Please select dataset and both columns for comparison');
+            return;
+        }
+        
+        showLoading();
+        
+        try {
+            const comparison = await performColumnComparison(datasetId, column1, datasetId, column2);
+            displayColumnComparison(comparison);
+            
+        } catch (error) {
+            console.error('Error comparing columns:', error);
+            showError('Failed to compare columns');
+        } finally {
+            hideLoading();
+        }
+    }
+    
+    async function performColumnComparison(dataset1Id, column1, dataset2Id, column2) {
+        try {
+            const response = await fetch('/api/comparison/columns', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    dataset1_id: dataset1Id,
+                    column1: column1,
+                    dataset2_id: dataset2Id,
+                    column2: column2
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const data = await response.json();
+            if (data.success) {
+                return data.comparison;
+            } else {
+                throw new Error(data.error || 'Failed to compare columns');
+            }
+        } catch (error) {
+            console.error('Error comparing columns:', error);
+            // Fallback to basic comparison using stored data
+            const datasets = getStoredDatasets();
+            const dataset1 = datasets.find(d => d.id == dataset1Id);
+            const dataset2 = datasets.find(d => d.id == dataset2Id);
+            
+            return {
+                column1: {
+                    dataset: dataset1 ? (dataset1.name || dataset1.filename) : 'Unknown',
+                    column: column1,
+                    type: 'unknown',
+                    stats: {
+                        count: dataset1 ? dataset1.rows : 'Unknown',
+                        mean: 'Unknown',
+                        std: 'Unknown',
+                        min: 'Unknown',
+                        max: 'Unknown',
+                        unique: 'Unknown'
+                    }
+                },
+                column2: {
+                    dataset: dataset2 ? (dataset2.name || dataset2.filename) : 'Unknown',
+                    column: column2,
+                    type: 'unknown',
+                    stats: {
+                        count: dataset2 ? dataset2.rows : 'Unknown',
+                        mean: 'Unknown',
+                        std: 'Unknown',
+                        min: 'Unknown',
+                        max: 'Unknown',
+                        unique: 'Unknown'
+                    }
+                },
+                tests: {
+                    correlation: 'Unable to calculate',
+                    t_test_p_value: 'Unable to calculate',
+                    ks_test_p_value: 'Unable to calculate'
+                },
+                error: 'Column comparison unavailable - API error'
+            };
+        }
+    }
+    
+    function displayColumnComparison(comparison) {
+        const container = document.getElementById('comparison-results');
+        
+        // Handle different comparison response formats
+        let displayData;
+        
+        if (comparison.comparison_type === 'cross_dataset') {
+            // Cross-dataset comparison format
+            displayData = {
+                column1: {
+                    dataset: comparison.datasets.dataset1,
+                    column: comparison.columns.column1,
+                    stats: comparison.column1_stats
+                },
+                column2: {
+                    dataset: comparison.datasets.dataset2,
+                    column: comparison.columns.column2,
+                    stats: comparison.column2_stats
+                },
+                summary: comparison.comparison_summary,
+                tests: null
+            };
+        } else if (comparison.comparison_type === 'numerical') {
+            // Same-dataset numerical comparison
+            displayData = {
+                column1: {
+                    dataset: 'Current Dataset',
+                    column: comparison.columns[0],
+                    stats: comparison.descriptive_stats[comparison.columns[0]]
+                },
+                column2: {
+                    dataset: 'Current Dataset', 
+                    column: comparison.columns[1],
+                    stats: comparison.descriptive_stats[comparison.columns[1]]
+                },
+                tests: {
+                    'Pearson Correlation': `${comparison.pearson_correlation?.coefficient?.toFixed(4) || 'N/A'} (p=${comparison.pearson_correlation?.p_value?.toFixed(4) || 'N/A'})`,
+                    'Spearman Correlation': `${comparison.spearman_correlation?.coefficient?.toFixed(4) || 'N/A'} (p=${comparison.spearman_correlation?.p_value?.toFixed(4) || 'N/A'})`,
+                    'T-test P-value': comparison.difference_test?.p_value?.toFixed(4) || 'N/A',
+                    'KS Test P-value': comparison.distribution_test?.p_value?.toFixed(4) || 'N/A',
+                    'Effect Size (Cohen\'s d)': comparison.effect_size?.cohens_d?.toFixed(4) || 'N/A'
+                },
+                interpretation: {
+                    correlation: comparison.pearson_correlation?.interpretation || 'N/A',
+                    difference: comparison.difference_test?.interpretation || 'N/A',
+                    distribution: comparison.distribution_test?.interpretation || 'N/A',
+                    effect: comparison.effect_size?.interpretation || 'N/A'
+                }
+            };
+        } else if (comparison.comparison_type === 'categorical') {
+            // Same-dataset categorical comparison
+            displayData = {
+                column1: {
+                    dataset: 'Current Dataset',
+                    column: comparison.columns[0],
+                    stats: comparison.descriptive_stats[comparison.columns[0]]
+                },
+                column2: {
+                    dataset: 'Current Dataset',
+                    column: comparison.columns[1], 
+                    stats: comparison.descriptive_stats[comparison.columns[1]]
+                },
+                tests: {
+                    'Chi-Square Statistic': comparison.chi_square_test?.chi2_statistic?.toFixed(4) || 'N/A',
+                    'Chi-Square P-value': comparison.chi_square_test?.p_value?.toFixed(4) || 'N/A',
+                    'Degrees of Freedom': comparison.chi_square_test?.degrees_of_freedom || 'N/A',
+                    'Cramér\'s V': comparison.effect_size?.cramers_v?.toFixed(4) || 'N/A',
+                    'Mutual Information': comparison.mutual_information?.score?.toFixed(4) || 'N/A'
+                },
+                interpretation: {
+                    independence: comparison.chi_square_test?.interpretation || 'N/A',
+                    association: comparison.effect_size?.interpretation || 'N/A',
+                    mutual_info: comparison.mutual_information?.interpretation || 'N/A'
+                }
+            };
+        } else if (comparison.comparison_type === 'mixed') {
+            // Mixed comparison (ANOVA) - used for segment analysis
+            displayData = {
+                type: 'segment_analysis',
+                numerical_column: comparison.numerical_column,
+                categorical_column: comparison.categorical_column,
+                group_statistics: comparison.group_statistics,
+                tests: {
+                    'ANOVA F-statistic': comparison.anova_test?.f_statistic?.toFixed(4) || 'N/A',
+                    'ANOVA P-value': comparison.anova_test?.p_value?.toFixed(4) || 'N/A',
+                    'Kruskal-Wallis H': comparison.kruskal_wallis_test?.h_statistic?.toFixed(4) || 'N/A',
+                    'KW P-value': comparison.kruskal_wallis_test?.p_value?.toFixed(4) || 'N/A',
+                    'Effect Size (η²)': comparison.effect_size?.eta_squared?.toFixed(4) || 'N/A'
+                },
+                interpretation: {
+                    anova: comparison.anova_test?.interpretation || 'N/A',
+                    kruskal: comparison.kruskal_wallis_test?.interpretation || 'N/A',
+                    effect: comparison.effect_size?.interpretation || 'N/A'
+                },
+                sample_size: comparison.sample_size,
+                group_count: comparison.group_count
+            };
+        } else {
+            // Fallback or error case
+            displayData = comparison;
+        }
+        
+        // Handle segment analysis display differently
+        if (displayData.type === 'segment_analysis') {
+            const html = `
+                <div class="segment-comparison-results">
+                    <h3>Segment Analysis Results</h3>
+                    <p>Analyzing <strong>${displayData.numerical_column}</strong> across segments of <strong>${displayData.categorical_column}</strong></p>
+                    
+                    <div class="comparison-summary">
+                        <div class="summary-cards">
+                            <div class="summary-card">
+                                <h4>Sample Size</h4>
+                                <span>${displayData.sample_size || 'N/A'}</span>
+                            </div>
+                            <div class="summary-card">
+                                <h4>Groups Found</h4>
+                                <span>${displayData.group_count || 'N/A'}</span>
+                            </div>
+                            <div class="summary-card">
+                                <h4>ANOVA P-value</h4>
+                                <span>${displayData.tests['ANOVA P-value']}</span>
+                            </div>
+                            <div class="summary-card">
+                                <h4>Effect Size (η²)</h4>
+                                <span>${displayData.tests['Effect Size (η²)']}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="group-statistics-section">
+                        <h4>Group Statistics</h4>
+                        ${generateGroupStatisticsTable(displayData.group_statistics)}
+                    </div>
+                    
+                    <div class="statistical-tests">
+                        <h4>Statistical Tests</h4>
+                        <div class="test-results">
+                            ${Object.entries(displayData.tests).map(([testName, value]) => `
+                                <div class="test-result">
+                                    <span class="test-name">${testName}:</span>
+                                    <span class="test-value">${value}</span>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+
+                    <div class="interpretation-section">
+                        <h4>Interpretation</h4>
+                        <div class="interpretation-grid">
+                            ${Object.entries(displayData.interpretation).map(([key, value]) => `
+                                <div class="interpretation-item">
+                                    <span class="interpretation-label">${key.toUpperCase()}:</span>
+                                    <span class="interpretation-value">${value}</span>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            container.innerHTML = html;
+            container.style.display = 'block';
+            return;
+        }
+        
+        // Safely handle undefined comparison data
+        if (!displayData || !displayData.column1 || !displayData.column2) {
+            container.innerHTML = `
+                <div class="column-comparison-results error">
+                    <h3>Column Comparison Error</h3>
+                    <p>Unable to display comparison results. Please ensure both columns are properly selected and contain valid data.</p>
+                    <p>Error details: ${comparison.error || 'Unknown error occurred'}</p>
+                </div>
+            `;
+            container.style.display = 'block';
+            return;
+        }
+        
+        const html = `
+            <div class="column-comparison-results">
+                <h3>Column Comparison Results</h3>
+                <p>Comparing <strong>${displayData.column1.column}</strong> vs <strong>${displayData.column2.column}</strong></p>
+                
+                <div class="column-stats-grid">
+                    <div class="column-stats-card">
+                        <h4>${displayData.column1.dataset} - ${displayData.column1.column}</h4>
+                        <div class="stats-list">
+                            ${displayData.column1.stats ? Object.entries(displayData.column1.stats).map(([stat, value]) => `
+                                <div class="stat-row">
+                                    <span class="stat-name">${stat.replace('_', ' ').toUpperCase()}:</span>
+                                    <span class="stat-value">${
+                                        typeof value === 'number' ? value.toFixed(3) : 
+                                        (value !== null && value !== undefined ? value : 'N/A')
+                                    }</span>
+                                </div>
+                            `).join('') : '<p>No statistics available</p>'}
+                        </div>
+                    </div>
+                    
+                    <div class="column-stats-card">
+                        <h4>${displayData.column2.dataset} - ${displayData.column2.column}</h4>
+                        <div class="stats-list">
+                            ${displayData.column2.stats ? Object.entries(displayData.column2.stats).map(([stat, value]) => `
+                                <div class="stat-row">
+                                    <span class="stat-name">${stat.replace('_', ' ').toUpperCase()}:</span>
+                                    <span class="stat-value">${
+                                        typeof value === 'number' ? value.toFixed(3) : 
+                                        (value !== null && value !== undefined ? value : 'N/A')
+                                    }</span>
+                                </div>
+                            `).join('') : '<p>No statistics available</p>'}
+                        </div>
+                    </div>
+                </div>
+                
+                ${displayData.summary ? `
+                    <div class="comparison-summary-section">
+                        <h4>Comparison Summary</h4>
+                        <div class="summary-stats">
+                            <div class="summary-item">
+                                <span class="summary-label">Data Types Match:</span>
+                                <span class="summary-value ${displayData.summary.data_type_match ? 'positive' : 'negative'}">
+                                    ${displayData.summary.data_type_match ? 'Yes' : 'No'}
+                                </span>
+                            </div>
+                            <div class="summary-item">
+                                <span class="summary-label">Size Difference:</span>
+                                <span class="summary-value">${displayData.summary.size_difference || 0} rows</span>
+                            </div>
+                            ${displayData.summary.mean_difference ? `
+                                <div class="summary-item">
+                                    <span class="summary-label">Mean Difference:</span>
+                                    <span class="summary-value">${displayData.summary.mean_difference.toFixed(3)}</span>
+                                </div>
+                            ` : ''}
+                        </div>
+                        ${displayData.summary.notes && displayData.summary.notes.length > 0 ? `
+                            <div class="summary-notes">
+                                <h5>Notes:</h5>
+                                <ul>
+                                    ${displayData.summary.notes.map(note => `<li>${note}</li>`).join('')}
+                                </ul>
+                            </div>
+                        ` : ''}
+                    </div>
+                ` : ''}
+                
+                ${displayData.tests ? `
+                    <div class="statistical-tests">
+                        <h4>Statistical Tests</h4>
+                        <div class="test-results">
+                            ${Object.entries(displayData.tests).map(([testName, value]) => `
+                                <div class="test-result">
+                                    <span class="test-name">${testName}:</span>
+                                    <span class="test-value">${value}</span>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                ` : ''}
+
+                ${displayData.interpretation ? `
+                    <div class="interpretation-section">
+                        <h4>Interpretation</h4>
+                        <div class="interpretation-grid">
+                            ${Object.entries(displayData.interpretation).map(([key, value]) => `
+                                <div class="interpretation-item">
+                                    <span class="interpretation-label">${key.toUpperCase()}:</span>
+                                    <span class="interpretation-value">${value}</span>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                ` : ''}
+            </div>
+        `;
+        
+        container.innerHTML = html;
+        container.style.display = 'block';
+    }
+    
+    function switchTab(tabName) {
+        console.log('switchTab called with:', tabName);
+        
+        // Handle both comparison tabs and detailed comparison tabs
+        const allTabs = document.querySelectorAll('.comp-tab-content, .tab-pane');
+        const allButtons = document.querySelectorAll('.comp-tab-button, .comparison-tab');
+        
+        console.log('Found tabs:', allTabs.length, 'Found buttons:', allButtons.length);
+        
+        // Hide all tabs
+        allTabs.forEach(tab => {
+            tab.classList.remove('active');
+            tab.style.display = 'none';
+            tab.style.visibility = 'hidden';
+            tab.style.opacity = '0';
+        });
+        
+        // Remove active from all buttons
+        allButtons.forEach(button => button.classList.remove('active'));
+        
+        // Show selected tab
+        const selectedTab = document.getElementById(tabName);
+        console.log('Selected tab element:', selectedTab);
+        console.log('Selected tab innerHTML length:', selectedTab ? selectedTab.innerHTML.length : 'not found');
+        
+        if (selectedTab) {
+            selectedTab.classList.add('active');
+            selectedTab.style.display = 'block';
+            selectedTab.style.visibility = 'visible';
+            selectedTab.style.opacity = '1';
+            
+            // Force with setAttribute as backup
+            selectedTab.setAttribute('style', 'display: block !important; visibility: visible !important; opacity: 1 !important;');
+            
+            // Double-check the changes were applied
+            console.log('After setting active - classList:', selectedTab.classList.toString());
+            console.log('After setting active - style.display:', selectedTab.style.display);
+            console.log('After setting active - computed display:', window.getComputedStyle(selectedTab).display);
+            console.log('Tab should now be visible:', tabName);
+            
+            // Also activate the corresponding button
+            const correspondingButton = document.querySelector(`[data-tab="${tabName}"]`);
+            if (correspondingButton) {
+                correspondingButton.classList.add('active');
+                console.log('Button activated for tab:', tabName);
+            }
+        } else {
+            console.error('Could not find tab with ID:', tabName);
+        }
+        
+        // Activate corresponding button
+        const activeButton = document.querySelector(`[data-tab="${tabName}"]`);
+        if (activeButton) {
+            activeButton.classList.add('active');
+        }
+    }
+    
+    function exportComparison() {
+        const results = document.getElementById('comparison-results');
+        if (!results || results.style.display === 'none') {
+            showError('No comparison results to export');
+            return;
+        }
+        
+        // Create a simplified version for export
+        const exportData = {
+            timestamp: new Date().toISOString(),
+            comparison_type: comparisonType.value,
+            results: 'Comparison results would be exported here'
+        };
+        
+        const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `comparison_results_${Date.now()}.json`;
+        a.click();
+        
+        showSuccess('Comparison results exported');
+    }
+    
+    function showLoading() {
+        loadingModal.style.display = 'flex';
+    }
+    
+    function hideLoading() {
+        loadingModal.style.display = 'none';
+    }
+    
+    function showError(message) {
+        // Remove existing messages
+        const existingMessages = document.querySelectorAll('.error-message, .success-message');
+        existingMessages.forEach(msg => msg.remove());
+        
+        // Create error message
+        const errorDiv = document.createElement('div');
+        errorDiv.className = 'error-message';
+        errorDiv.textContent = message;
+        
+        // Insert at the top of the comparison container
+        const container = document.querySelector('.comparison-container');
+        if (container) {
+            container.insertBefore(errorDiv, container.firstChild);
+        }
+        
+        // Auto-remove after 5 seconds
+        setTimeout(() => {
+            if (errorDiv.parentNode) {
+                errorDiv.remove();
+            }
+        }, 5000);
+    }
+    
+    function showSuccess(message) {
+        // Remove existing messages
+        const existingMessages = document.querySelectorAll('.error-message, .success-message');
+        existingMessages.forEach(msg => msg.remove());
+        
+        // Create success message
+        const successDiv = document.createElement('div');
+        successDiv.className = 'success-message';
+        successDiv.textContent = message;
+        
+        // Insert at the top of the comparison container
+        const container = document.querySelector('.comparison-container');
+        if (container) {
+            container.insertBefore(successDiv, container.firstChild);
+        }
+        
+        // Auto-remove after 3 seconds
+        setTimeout(() => {
+            if (successDiv.parentNode) {
+                successDiv.remove();
+            }
+        }, 3000);
+    }
+    
+    function updateSegmentOptions() {
+        const selectedDatasetId = document.getElementById('seg-dataset-select').value;
+        const segmentColumn = document.getElementById('segment-column');
+        const targetColumn = document.getElementById('target-column');
+        
+        // Clear existing options
+        if (segmentColumn) segmentColumn.innerHTML = '<option value="">Choose segmentation column...</option>';
+        if (targetColumn) targetColumn.innerHTML = '<option value="">Choose target column...</option>';
+        
+        if (selectedDatasetId) {
+            // First try to get columns from stored datasets
+            const datasets = getStoredDatasets();
+            const selectedDataset = datasets.find(d => d.id.toString() === selectedDatasetId);
+            
+            if (selectedDataset && selectedDataset.columns_list && selectedDataset.columns_list.length > 0) {
+                // Use stored column data
+                selectedDataset.columns_list.forEach(columnName => {
+                    if (segmentColumn) {
+                        const option1 = document.createElement('option');
+                        option1.value = columnName;
+                        option1.textContent = columnName;
+                        segmentColumn.appendChild(option1);
+                    }
+                    if (targetColumn) {
+                        const option2 = document.createElement('option');
+                        option2.value = columnName;
+                        option2.textContent = columnName;
+                        targetColumn.appendChild(option2);
+                    }
+                });
+            } else {
+                // Fetch columns from API as fallback
+                fetch(`/api/data/columns/${selectedDatasetId}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success && data.columns) {
+                            data.columns.forEach(column => {
+                                if (segmentColumn) {
+                                    const option1 = document.createElement('option');
+                                    option1.value = column.name;
+                                    option1.textContent = `${column.name} (${column.type})`;
+                                    segmentColumn.appendChild(option1);
+                                }
+                                if (targetColumn) {
+                                    const option2 = document.createElement('option');
+                                    option2.value = column.name;
+                                    option2.textContent = `${column.name} (${column.type})`;
+                                    targetColumn.appendChild(option2);
+                                }
+                            });
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error loading columns for segments:', error);
+                    });
+            }
+        }
+    }
+    
+    async function compareSegments() {
+        const datasetId = document.getElementById('seg-dataset-select').value;
+        const segmentColumn = document.getElementById('segment-column').value;
+        const targetColumn = document.getElementById('target-column').value;
+        
+        if (!datasetId || !segmentColumn || !targetColumn) {
+            showError('Please select dataset, segmentation column, and target column');
+            return;
+        }
+        
+        showLoading();
+        
+        try {
+            const response = await fetch(`/api/comparison/segments/${datasetId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    target_column: targetColumn,
+                    segment_column: segmentColumn
+                })
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                // Use the improved displayColumnComparison function
+                displayColumnComparison(data.data || data);
+            } else {
+                throw new Error(data.error || 'Failed to compare segments');
+            }
+            
+        } catch (error) {
+            console.error('Error comparing segments:', error);
+            showError('Failed to compare segments: ' + error.message);
+        } finally {
+            hideLoading();
+        }
+    }
+    
+    function generateGroupStatsHTML(groupStats) {
+        if (!groupStats || Object.keys(groupStats).length === 0) {
+            return '<p>No group statistics available.</p>';
+        }
+        
+        let html = `
+            <table class="group-stats-table">
+                <thead>
+                    <tr>
+                        <th>Group</th>
+                        <th>Count</th>
+                        <th>Mean</th>
+                        <th>Std Dev</th>
+                        <th>Min</th>
+                        <th>Max</th>
+                        <th>Median</th>
+                    </tr>
+                </thead>
+                <tbody>
+        `;
+        
+        Object.entries(groupStats).forEach(([group, stats]) => {
+            html += `
+                <tr>
+                    <td><strong>${group}</strong></td>
+                    <td>${stats.count || 'N/A'}</td>
+                    <td>${typeof stats.mean === 'number' ? stats.mean.toFixed(3) : 'N/A'}</td>
+                    <td>${typeof stats.std === 'number' ? stats.std.toFixed(3) : 'N/A'}</td>
+                    <td>${typeof stats.min === 'number' ? stats.min.toFixed(3) : 'N/A'}</td>
+                    <td>${typeof stats.max === 'number' ? stats.max.toFixed(3) : 'N/A'}</td>
+                    <td>${typeof stats.median === 'number' ? stats.median.toFixed(3) : 'N/A'}</td>
+                </tr>
+            `;
+        });
+        
+        html += '</tbody></table>';
+        return html;
+    }
+    
+    function generateTestResultsHTML(result) {
+        const anovaTest = result.anova_test || {};
+        const kwTest = result.kruskal_wallis_test || {};
+        
+        return `
+            <div class="test-results">
+                <div class="test-section">
+                    <h5>ANOVA Test (Parametric)</h5>
+                    <div class="test-stats">
+                        <div class="stat-item">
+                            <span class="stat-name">F-statistic:</span>
+                            <span class="stat-value">${anovaTest.f_statistic ? anovaTest.f_statistic.toFixed(4) : 'N/A'}</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-name">P-value:</span>
+                            <span class="stat-value">${anovaTest.p_value ? anovaTest.p_value.toFixed(4) : 'N/A'}</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-name">Interpretation:</span>
+                            <span class="stat-value">${anovaTest.interpretation || 'No interpretation available'}</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="test-section">
+                    <h5>Kruskal-Wallis Test (Non-parametric)</h5>
+                    <div class="test-stats">
+                        <div class="stat-item">
+                            <span class="stat-name">H-statistic:</span>
+                            <span class="stat-value">${kwTest.h_statistic ? kwTest.h_statistic.toFixed(4) : 'N/A'}</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-name">P-value:</span>
+                            <span class="stat-value">${kwTest.p_value ? kwTest.p_value.toFixed(4) : 'N/A'}</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-name">Interpretation:</span>
+                            <span class="stat-value">${kwTest.interpretation || 'No interpretation available'}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+    
+    function generateInterpretationHTML(result) {
+        const recommendations = result.recommendations || [];
+        const effectSize = result.effect_size || {};
+        
+        let html = '<div class="interpretation-section">';
+        
+        if (effectSize.interpretation) {
+            html += `
+                <div class="effect-size-interpretation">
+                    <h5>Effect Size Interpretation</h5>
+                    <p>${effectSize.interpretation}</p>
+                </div>
+            `;
+        }
+        
+        if (recommendations.length > 0) {
+            html += `
+                <div class="recommendations">
+                    <h5>Recommendations</h5>
+                    <ul>
+                        ${recommendations.map(rec => `<li>${rec}</li>`).join('')}
+                    </ul>
+                </div>
+            `;
+        }
+        
+        html += '</div>';
+        return html;
+    }
+
+    function generateGroupStatisticsTable(groupStats) {
+        if (!groupStats || Object.keys(groupStats).length === 0) {
+            return '<p class="no-data">No group statistics available. This may occur if there is insufficient data or the groups contain only missing values.</p>';
+        }
+        
+        let html = `
+            <div class="group-stats-table-container">
+                <table class="group-stats-table">
+                    <thead>
+                        <tr>
+                            <th>Group</th>
+                            <th>Count</th>
+                            <th>Mean</th>
+                            <th>Std Dev</th>
+                            <th>Min</th>
+                            <th>Max</th>
+                            <th>Median</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+        `;
+        
+        Object.entries(groupStats).forEach(([group, stats]) => {
+            html += `
+                <tr>
+                    <td class="group-name"><strong>${group}</strong></td>
+                    <td>${stats.count || 'N/A'}</td>
+                    <td>${typeof stats.mean === 'number' ? stats.mean.toFixed(3) : 'N/A'}</td>
+                    <td>${typeof stats.std === 'number' ? stats.std.toFixed(3) : 'N/A'}</td>
+                    <td>${typeof stats.min === 'number' ? stats.min.toFixed(3) : 'N/A'}</td>
+                    <td>${typeof stats.max === 'number' ? stats.max.toFixed(3) : 'N/A'}</td>
+                    <td>${typeof stats.median === 'number' ? stats.median.toFixed(3) : 'N/A'}</td>
+                </tr>
+            `;
+        });
+        
+        html += '</tbody></table></div>';
+        return html;
+    }
+});
+
+// Add CSS for comparison functionality
+const comparisonCSS = `
+<style>
+.dataset-checkbox {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    margin: 10px 0;
+    padding: 12px;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    transition: background-color 0.2s;
+}
+
+.dataset-checkbox:hover {
+    background: #f8fafc;
+}
+
+.dataset-checkbox input[type="checkbox"] {
+    margin-top: 2px;
+}
+
+.dataset-checkbox label {
+    flex: 1;
+    cursor: pointer;
+    margin: 0;
+}
+
+.dataset-checkbox label strong {
+    display: block;
+    color: #1e293b;
+    margin-bottom: 4px;
+}
+
+.dataset-info {
+    color: #64748b;
+    font-size: 0.9em;
+}
+
+.overview-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 20px;
+    margin: 20px 0;
+}
+
+.dataset-overview-card {
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 20px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.dataset-overview-card h4 {
+    margin: 0 0 15px 0;
+    color: #1e293b;
+}
+
+.overview-stats {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.stat {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.stat .label {
+    color: #64748b;
+    font-weight: 500;
+}
+
+.stat .value {
+    color: #1e293b;
+    font-weight: 600;
+}
+
+.comparison-tabs {
+    display: flex;
+    gap: 2px;
+    margin: 20px 0 0 0;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.comparison-tab {
+    background: #f1f5f9;
+    border: 1px solid #cbd5e1;
+    border-bottom: none;
+    padding: 12px 24px;
+    cursor: pointer;
+    border-radius: 8px 8px 0 0;
+    transition: all 0.2s;
+}
+
+.comparison-tab.active {
+    background: white;
+    font-weight: 600;
+    border-color: #e2e8f0;
+}
+
+.tab-content {
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-top: none;
+    border-radius: 0 0 8px 8px;
+    padding: 20px;
+}
+
+.tab-pane {
+    display: none;
+}
+
+.tab-pane.active {
+    display: block;
+}
+
+.column-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 10px 0;
+}
+
+.column-tag {
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 0.8em;
+    font-weight: 500;
+}
+
+.column-tag.common {
+    background: #dcfce7;
+    color: #166534;
+}
+
+.column-tag.unique {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+.schema-section {
+    margin: 20px 0;
+}
+
+.schema-section h4, .schema-section h5 {
+    color: #1e293b;
+    margin: 15px 0 10px 0;
+}
+
+.type-differences-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 15px 0;
+}
+
+.type-differences-table th,
+.type-differences-table td {
+    padding: 12px;
+    text-align: left;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.type-differences-table th {
+    background: #f8fafc;
+    font-weight: 600;
+    color: #374151;
+}
+
+.type-differences-table code {
+    background: #f1f5f9;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: monospace;
+    font-size: 0.9em;
+}
+
+.statistics-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 20px 0;
+}
+
+.statistics-table th,
+.statistics-table td {
+    padding: 12px;
+    text-align: left;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.statistics-table th {
+    background: #f8fafc;
+    font-weight: 600;
+    color: #374151;
+}
+
+.quality-comparison {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 20px;
+    margin: 20px 0;
+}
+
+.quality-card {
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 20px;
+}
+
+.quality-card h4 {
+    margin: 0 0 15px 0;
+    color: #1e293b;
+}
+
+.quality-metrics {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.quality-metric {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.metric-name {
+    font-weight: 500;
+    color: #374151;
+    font-size: 0.9em;
+}
+
+.metric-bar {
+    position: relative;
+    background: #f1f5f9;
+    height: 20px;
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+.metric-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #ef4444, #f59e0b, #22c55e);
+    transition: width 0.3s ease;
+}
+
+.metric-value {
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 0.8em;
+    font-weight: 600;
+    color: #1e293b;
+}
+
+.column-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 20px;
+    margin: 20px 0;
+}
+
+.column-stats-card {
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 20px;
+}
+
+.column-stats-card h4 {
+    margin: 0 0 15px 0;
+    color: #1e293b;
+    font-size: 1.1em;
+}
+
+.stats-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.stat-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid #f1f5f9;
+}
+
+.stat-name {
+    color: #64748b;
+    font-weight: 500;
+    font-size: 0.9em;
+}
+
+.stat-value {
+    color: #1e293b;
+    font-weight: 600;
+}
+
+.statistical-tests {
+    margin: 30px 0;
+    padding: 20px;
+    background: #f8fafc;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+}
+
+.statistical-tests h4 {
+    margin: 0 0 15px 0;
+    color: #1e293b;
+}
+
+.test-results {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 15px;
+}
+
+.test-result {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.test-name {
+    color: #64748b;
+    font-weight: 500;
+    font-size: 0.9em;
+}
+
+.test-value {
+    color: #1e293b;
+    font-weight: 600;
+    font-size: 1.1em;
+}
+</style>
+`;
+
+document.head.insertAdjacentHTML('beforeend', comparisonCSS);
