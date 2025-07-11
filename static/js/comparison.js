@@ -13,7 +13,6 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Initialize
     console.log('Initializing comparison functionality...');
-    injectComparisonCSS();  // Inject CSS first
     loadDatasets();
     setupEventListeners();
     console.log('Comparison initialization complete');
@@ -445,37 +444,44 @@ document.addEventListener('DOMContentLoaded', function() {
         console.log('Setting innerHTML for comparison results');
         container.innerHTML = html;
         
-        // Ensure the container is visible - use multiple approaches
+        // Show the container using the existing CSS system
         container.style.display = 'block';
-        container.style.visibility = 'visible';
-        container.style.opacity = '1';
         container.classList.remove('hidden');
         
-        // Force display with important
-        container.setAttribute('style', 'display: block !important; visibility: visible !important; opacity: 1 !important;');
-        
         console.log('Container display set to:', container.style.display);
-        console.log('Container visibility set to:', container.style.visibility);
         console.log('Container computed display:', window.getComputedStyle(container).display);
         
-        // Check if the statistics tab content was created
-        const statsTab = document.getElementById('statistics');
-        console.log('Statistics tab element:', statsTab);
-        console.log('Statistics tab innerHTML length:', statsTab ? statsTab.innerHTML.length : 'not found');
+        // Force a repaint to ensure visibility
+        container.offsetHeight; // This forces a reflow
         
-        // Reattach tab event listeners
-        const tabButtons = container.querySelectorAll('.comp-tab-button');
-        console.log('Found tab buttons:', tabButtons.length);
-        tabButtons.forEach((button, index) => {
-            const tabName = button.getAttribute('data-tab');
-            console.log(`Tab button ${index}: ${button.textContent} -> ${tabName}`);
-            button.addEventListener('click', (e) => {
-                console.log('Tab button clicked:', e.target.textContent, 'data-tab:', e.target.getAttribute('data-tab'));
-                switchTab(e.target.getAttribute('data-tab'));
+        // Add a small delay to ensure DOM is ready
+        setTimeout(() => {
+            // Check if the statistics tab content was created
+            const statsTab = document.getElementById('statistics');
+            console.log('Statistics tab element:', statsTab);
+            console.log('Statistics tab innerHTML length:', statsTab ? statsTab.innerHTML.length : 'not found');
+            
+            // Reattach tab event listeners
+            const tabButtons = container.querySelectorAll('.comp-tab-button');
+            console.log('Found tab buttons:', tabButtons.length);
+            tabButtons.forEach((button, index) => {
+                const tabName = button.getAttribute('data-tab');
+                console.log(`Tab button ${index}: ${button.textContent} -> ${tabName}`);
+                button.addEventListener('click', (e) => {
+                    console.log('Tab button clicked:', e.target.textContent, 'data-tab:', e.target.getAttribute('data-tab'));
+                    switchTab(e.target.getAttribute('data-tab'));
+                });
             });
-        });
-        
-        console.log('Dataset comparison display completed');
+            
+            // Ensure overview tab is properly shown
+            const overviewTab = document.getElementById('overview');
+            if (overviewTab) {
+                overviewTab.classList.add('active');
+                console.log('Overview tab activated by default');
+            }
+            
+            console.log('Dataset comparison display completed');
+        }, 100);
     }
     
     function generateOverviewHTML(overview) {
@@ -1168,12 +1174,16 @@ document.addEventListener('DOMContentLoaded', function() {
         console.log('Found tabs:', allTabs.length, 'Found buttons:', allButtons.length);
         
         // Hide all tabs - use simple approach
-        allTabs.forEach(tab => {
+        allTabs.forEach((tab, index) => {
             tab.classList.remove('active');
+            console.log(`Tab ${index} (${tab.id}) active class removed`);
         });
         
         // Remove active from all buttons
-        allButtons.forEach(button => button.classList.remove('active'));
+        allButtons.forEach((button, index) => {
+            button.classList.remove('active');
+            console.log(`Button ${index} (${button.getAttribute('data-tab')}) active class removed`);
+        });
         
         // Show selected tab
         const selectedTab = document.getElementById(tabName);
@@ -1182,12 +1192,18 @@ document.addEventListener('DOMContentLoaded', function() {
         if (selectedTab) {
             selectedTab.classList.add('active');
             console.log('Tab activated:', tabName);
+            console.log('Tab classes after activation:', selectedTab.className);
+            console.log('Tab computed display:', window.getComputedStyle(selectedTab).display);
+            
+            // Force a repaint
+            selectedTab.offsetHeight;
             
             // Also activate the corresponding button
             const correspondingButton = document.querySelector(`[data-tab="${tabName}"]`);
             if (correspondingButton) {
                 correspondingButton.classList.add('active');
                 console.log('Button activated for tab:', tabName);
+                console.log('Button classes after activation:', correspondingButton.className);
             }
         } else {
             console.error('Could not find tab with ID:', tabName);
@@ -1532,367 +1548,3 @@ document.addEventListener('DOMContentLoaded', function() {
         return html;
     }
 });
-
-// Inject CSS styles for comparison functionality
-function injectComparisonCSS() {
-    const existingStyle = document.getElementById('comparison-styles');
-    if (existingStyle) {
-        return; // Already injected
-    }
-    
-    const style = document.createElement('style');
-    style.id = 'comparison-styles';
-    style.textContent = `
-        /* Tab functionality styles */
-        .comp-tab-content {
-            display: none;
-            padding: 20px;
-            background: white;
-            border: 1px solid #e2e8f0;
-            border-top: none;
-            border-radius: 0 0 8px 8px;
-        }
-
-        .comp-tab-content.active {
-            display: block !important;
-        }
-
-        .comp-tab-button {
-            background: #f1f5f9;
-            border: 1px solid #cbd5e1;
-            border-bottom: none;
-            padding: 12px 24px;
-            cursor: pointer;
-            border-radius: 8px 8px 0 0;
-            transition: all 0.2s;
-            color: #64748b;
-        }
-
-        .comp-tab-button.active {
-            background: white;
-            color: #1e293b;
-            border-color: #e2e8f0;
-            border-bottom: 1px solid white;
-            margin-bottom: -1px;
-            position: relative;
-            z-index: 1;
-        }
-
-        .comp-tab-button:hover {
-            background: #e2e8f0;
-            color: #1e293b;
-        }
-
-        .comparison-tabs {
-            display: flex;
-            gap: 2px;
-            margin: 20px 0 0 0;
-            border-bottom: 1px solid #e2e8f0;
-        }
-
-        .tab-content {
-            position: relative;
-        }
-
-        /* Statistics comparison styles */
-        .statistics-comparison {
-            padding: 20px 0;
-        }
-
-        .statistic-section {
-            margin-bottom: 30px;
-            background: #f8fafc;
-            padding: 20px;
-            border-radius: 8px;
-            border: 1px solid #e2e8f0;
-        }
-
-        .statistic-section h5 {
-            margin: 0 0 15px 0;
-            color: #1e293b;
-        }
-
-        .column-type {
-            font-size: 0.85em;
-            color: #64748b;
-            font-weight: normal;
-        }
-
-        .statistics-table {
-            width: 100%;
-            border-collapse: collapse;
-            background: white;
-            border-radius: 6px;
-            overflow: hidden;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-        }
-
-        .statistics-table th,
-        .statistics-table td {
-            padding: 12px;
-            text-align: left;
-            border-bottom: 1px solid #e2e8f0;
-        }
-
-        .statistics-table th {
-            background: #f1f5f9;
-            color: #374151;
-            font-weight: 600;
-        }
-
-        .statistics-table tr:last-child td {
-            border-bottom: none;
-        }
-
-        .statistics-table tr:hover {
-            background: #f8fafc;
-        }
-
-        /* Schema comparison styles */
-        .schema-comparison {
-            padding: 20px 0;
-        }
-
-        .schema-section {
-            margin-bottom: 25px;
-        }
-
-        .schema-section h4 {
-            margin: 0 0 15px 0;
-            color: #1e293b;
-        }
-
-        .column-list {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-            margin: 10px 0;
-        }
-
-        .column-tag {
-            padding: 6px 12px;
-            border-radius: 20px;
-            font-size: 0.9em;
-            font-weight: 500;
-        }
-
-        .column-tag.common {
-            background: #d1fae5;
-            color: #065f46;
-            border: 1px solid #a7f3d0;
-        }
-
-        .column-tag.unique {
-            background: #fef3c7;
-            color: #92400e;
-            border: 1px solid #fde68a;
-        }
-
-        .unique-columns {
-            margin: 15px 0;
-            padding: 15px;
-            background: #f8fafc;
-            border-radius: 6px;
-            border: 1px solid #e2e8f0;
-        }
-
-        .unique-columns h5 {
-            margin: 0 0 10px 0;
-            color: #374151;
-        }
-
-        .type-differences-table {
-            width: 100%;
-            border-collapse: collapse;
-            background: white;
-            border-radius: 6px;
-            overflow: hidden;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-        }
-
-        .type-differences-table th,
-        .type-differences-table td {
-            padding: 12px;
-            text-align: left;
-            border-bottom: 1px solid #e2e8f0;
-        }
-
-        .type-differences-table th {
-            background: #f1f5f9;
-            color: #374151;
-            font-weight: 600;
-        }
-
-        .type-differences-table code {
-            background: #f1f5f9;
-            padding: 2px 6px;
-            border-radius: 4px;
-            font-family: 'Courier New', monospace;
-            font-size: 0.9em;
-        }
-
-        /* Quality comparison styles */
-        .quality-comparison {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 20px;
-            padding: 20px 0;
-        }
-
-        .quality-card {
-            background: white;
-            border: 1px solid #e2e8f0;
-            border-radius: 8px;
-            padding: 20px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-
-        .quality-card h4 {
-            margin: 0 0 20px 0;
-            color: #1e293b;
-        }
-
-        .quality-metrics {
-            display: flex;
-            flex-direction: column;
-            gap: 15px;
-        }
-
-        .quality-metric {
-            display: flex;
-            flex-direction: column;
-            gap: 5px;
-        }
-
-        .metric-name {
-            font-weight: 500;
-            color: #374151;
-            font-size: 0.9em;
-        }
-
-        .metric-bar {
-            position: relative;
-            height: 20px;
-            background: #f1f5f9;
-            border-radius: 10px;
-            overflow: hidden;
-        }
-
-        .metric-fill {
-            height: 100%;
-            background: linear-gradient(90deg, #ef4444 0%, #f59e0b 50%, #10b981 100%);
-            border-radius: 10px;
-            transition: width 0.3s ease;
-        }
-
-        .metric-value {
-            position: absolute;
-            right: 10px;
-            top: 50%;
-            transform: translateY(-50%);
-            font-size: 0.8em;
-            font-weight: 600;
-            color: #1e293b;
-        }
-
-        /* Error and loading states */
-        .no-stats-message {
-            padding: 40px;
-            text-align: center;
-            background: #f8fafc;
-            border: 1px solid #e2e8f0;
-            border-radius: 8px;
-            color: #64748b;
-        }
-
-        .no-stats-message h4 {
-            color: #374151;
-            margin-bottom: 15px;
-        }
-
-        .no-stats-message ul {
-            text-align: left;
-            max-width: 400px;
-            margin: 0 auto;
-        }
-
-        .comparison-error {
-            padding: 30px;
-            background: #fef2f2;
-            border: 1px solid #fecaca;
-            border-radius: 8px;
-            color: #991b1b;
-        }
-
-        .comparison-error h3 {
-            margin: 0 0 15px 0;
-            color: #dc2626;
-        }
-
-        .error-suggestions {
-            margin-top: 20px;
-        }
-
-        .error-suggestions h4 {
-            margin: 0 0 10px 0;
-            color: #dc2626;
-        }
-
-        .error-suggestions ul {
-            margin: 0;
-            padding-left: 20px;
-        }
-
-        /* Overview grid styles */
-        .overview-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 20px;
-            margin: 20px 0;
-        }
-
-        .dataset-overview-card {
-            background: white;
-            border: 1px solid #e2e8f0;
-            border-radius: 8px;
-            padding: 20px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-
-        .dataset-overview-card h4 {
-            margin: 0 0 15px 0;
-            color: #1e293b;
-        }
-
-        .overview-stats {
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-        }
-
-        .stat {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .stat .label {
-            color: #64748b;
-            font-weight: 500;
-        }
-
-        .stat .value {
-            color: #1e293b;
-            font-weight: 600;
-        }
-    `;
-    
-    document.head.appendChild(style);
-}
-
-// Inject CSS when DOM is loaded
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', injectComparisonCSS);
-} else {
-    injectComparisonCSS();
-}
